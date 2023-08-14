@@ -1,0 +1,66 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Server",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "cwd": "${workspaceFolder}/server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run-script",
+        "dev"
+      ],
+      "localRoot": "${workspaceFolder}/server/src",
+    },
+    // React in ioncore-client using vite
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "React",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "cwd": "${workspaceFolder}/client",
+      "env": {
+        "PORT": "12463",
+        "NODE_ENV": "development"
+      },
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": [
+        "dev",
+        "--port",
+        "12463"
+      ],
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Chrome",
+      "url": "http://localhost:3080", // This should be changed if not using the default IP/Port
+      "webRoot": "${workspaceFolder}/client",
+    },
+  ],
+  "compounds": [
+    {
+      "name": "All",
+      "stopAll": true,
+      "presentation": {
+        "hidden": false,
+        "order": 1
+      },
+      // "preLaunchTask": "Install modules",
+      "configurations": [
+        "Chrome",
+        "React",
+        "Server",
+      ]
+    }
+  ],
+}

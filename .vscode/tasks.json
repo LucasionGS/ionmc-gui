@@ -1,0 +1,86 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "Install Server modules",
+      "detail": "install dependencies from package for server",
+      "command": "yarn install",
+      "options": {
+        "cwd": "${workspaceFolder}/server"
+      },
+      "hide": true
+    },
+    {
+      "type": "shell",
+      "label": "Install UI modules",
+      "detail": "install dependencies from package for server",
+      "command": "yarn install",
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      },
+      "hide": true
+    },
+    {
+      "type": "shell",
+      "label": "Install modules",
+      "detail": "install dependencies from package for server",
+      "command": "echo Installed modules",
+      "dependsOn": [
+        "Install Server modules",
+        "Install UI modules"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Server",
+      "detail": "Build Server",
+      "type": "npm",
+      "script": "build-server",
+      "options": {
+        "cwd": "${workspaceFolder}/server"
+      },
+      "problemMatcher": [],
+      "dependsOn": [
+        "Install Server modules"
+      ],
+      "hide": true
+    },
+    {
+      "label": "Build UI",
+      "detail": "Build UI",
+      "type": "npm",
+      "script": "build",
+      "options": {
+        "cwd": "${workspaceFolder}/ui"
+      },
+      "problemMatcher": [],
+      "dependsOn": [
+        "Install UI modules"
+      ],
+      "hide": true
+    },
+    {
+      "type": "shell",
+      "label": "Build Production",
+      "detail": "Build Production",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "windows": {
+        "command": "./build.bat"
+      },
+      "linux": {
+        "command": "./build.sh"
+      },
+      "osx": {
+        "command": "./build.sh"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+  ],
+}
