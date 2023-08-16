@@ -4,8 +4,8 @@ import Path from "path";
 import multer from "multer";
 
 namespace AppSystem {
-  export const friendlyAppName = "Ioncore Application";
-  export const appName = "ioncore_app";
+  export const friendlyAppName = "IonMC GUI";
+  export const appName = "ionmc_gui";
   export const debug = process.env.NODE_ENV === "development";
 
   export const platform = os.platform();
