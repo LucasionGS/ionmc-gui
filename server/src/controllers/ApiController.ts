@@ -2,6 +2,7 @@ import { Router, json } from "express";
 import UserController from "./UserController";
 import AssetController from "./AssetController";
 import AppSystem from "../AppSystem";
+import ServerController from "./ServerController";
 
 namespace ApiController {
   export const router = Router();
@@ -13,6 +14,7 @@ namespace ApiController {
 
   router.use("/user", jsonMw, UserController.router);
   router.use("/asset", AssetController.router);
+  router.use("/server", jsonMw, ServerController.router);
 }
 
 export default ApiController;

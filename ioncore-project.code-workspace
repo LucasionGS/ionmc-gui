@@ -18,7 +18,15 @@
 		}
 	],
 	"settings": {
-		"terminal.integrated.splitCwd": "workspaceRoot"
+		"terminal.integrated.splitCwd": "workspaceRoot",
+		"sqltools.connections": [
+			{
+				"previewLimit": 50,
+				"driver": "SQLite",
+				"database": "C:\\Users\\lucas\\AppData\\Roaming\\ionmc_gui\\main.db",
+				"name": "IonMC Gui DB"
+			}
+		]
 	},
 	"extensions": {
 		"recommendations": [

@@ -29,7 +29,7 @@ async function commandline(args: string[]) {
     await sequelize.sync({ alter: syncAlter, force: syncForce });
     console.log("Database synced");
     let userRole = await Role.getRoleByName("user");
-    const adminRole = await Role.getRoleByName("admin");
+    let adminRole = await Role.getRoleByName("admin");
 
     if (!userRole) {
       console.log("Creating default user role");
@@ -38,6 +38,7 @@ async function commandline(args: string[]) {
 
     if (!adminRole) {
       console.log("Creating default admin role");
+      adminRole = await Role.registerRole({ name: "admin" });
     }
   }
 }

@@ -37,6 +37,14 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
   public password!: string;
   public profilePicture!: string;
 
+  public async getServers() {
+    return Server.findAll({
+      where: {
+        userId: this.id,
+      },
+    });
+  }
+
   public async getRoles() {
     return Role.findAll({
       where: {
@@ -84,7 +92,7 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     password: string;
   }) {
     User.verifyUsername(data.username);
-    
+
     // check if username is taken
     if (await User.findOne({
       where: {
@@ -95,7 +103,7 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     })) {
       throw new Error("Username is already taken");
     }
-    
+
     return User.create({
       username: data.username,
       password: await User.hashPassword(data.password),
@@ -179,7 +187,7 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
             return;
           }
         }
-        
+
         (req as any).user = user;
         (req as any).clientUser = clientUser;
         next();
@@ -191,10 +199,20 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     };
   }
 
+  /**
+   * Get the user fetched from the database from the request.
+   * @param req Request from express
+   * @returns 
+   */
   public static getAuthenticatedUser(req: Request) {
     return ((req as any).user as User) || null;
   }
 
+  /**
+   * Get the client user from the request. This is received from the JWT token and not the database.
+   * @param req Request from express
+   * @returns 
+   */
   public static getClientUser(req: Request) {
     return ((req as any).clientUser as ClientUser) || null;
   }
@@ -505,7 +523,7 @@ export class Asset extends Model<AssetAttributes, AssetAttributesCreation> imple
   public getFullPath() {
     return Path.join(AppSystem.folders.assetFolder, this.name);
   }
-  
+
   /**
    * Returns the file for this asset. This deletes the file from the assets folder and removes the asset from the database.
    * 
@@ -537,5 +555,172 @@ Asset.init({
 }, {
   sequelize,
 });
+
+export interface ServerAttributesCreation {
+  name: string;
+  version: string;
+  ram: number;
+  port: number;
+  userId: string;
+}
+
+export interface ServerAttributes {
+  id: string;
+  name: string;
+  version: string;
+  ram: number;
+  port: number;
+  userId: string;
+}
+
+/**
+ * Represents a minecraft server in the database.
+ */
+export class Server extends Model<ServerAttributes, ServerAttributesCreation> implements ServerAttributes {
+  public id!: string;
+  public name!: string;
+  public version!: string;
+  public ram!: number;
+  public port!: number; // Unique, should update every time the server is started
+  public userId!: string;
+
+  /**
+   * Returns the server logs.  
+   * If `limit` is positive, it will take the first `limit` logs.  
+   * If `limit` is negative, it will take the last `limit` logs.
+   */
+  public async getLogs(options: {
+    /**
+     * How many logs to fetch. Defaults to all.  
+     * Negative numbers will fetch from the end.
+     */
+    limit?: number;
+  }) {
+    const { limit } = options;
+    if (limit === 0) {
+      return [];
+    }
+    if (limit === undefined) {
+      return ServerLog.findAll({
+        where: {
+          serverId: this.id,
+        },
+      });
+    } else {
+      return ServerLog.findAll({
+        where: {
+          serverId: this.id,
+        },
+        limit: Math.abs(limit),
+        order: [["createdAt", limit > 0 ? "ASC" : "DESC"]],
+      });
+    }
+  }
+
+  /**
+   * Log one or more messages to the server logs. Each argument will be logged as a separate entry.
+   */
+  private async logBulk(...data: string[]) {
+    const bulkData = data.map(d => ({
+      serverId: this.id,
+      data: d,
+    }));
+    await ServerLog.bulkCreate(bulkData);
+  }
+
+  /**
+   * Log a message to the server logs. It is queued and saved every second in bulk.
+   * @param data 
+   */
+  public async log(data: string) {
+    if (Server.saveIncrement === 0) {
+      Server.saveIncrement++;
+      setTimeout(async () => {
+        const toSave = [...Server.toSave];
+        Server.toSave = [];
+        await ServerLog.bulkCreate(toSave);
+        Server.saveIncrement = 0;
+      }, 1000);
+    }
+    
+    Server.toSave.push({
+      serverId: this.id,
+      data,
+    });
+  }
+
+  private static saveIncrement = 0;
+  private static toSave: { serverId: string, data: string }[] = [];
+}
+
+Server.init({
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  version: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  ram: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  port: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    unique: true,
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  },
+}, {
+  sequelize,
+});
+
+export interface ServerLogAttributesCreation {
+  serverId: string;
+  data: string;
+}
+
+export interface ServerLogAttributes {
+  id: string;
+  serverId: string;
+  data: string;
+}
+
+/**
+ * Represents a log entry in the database.
+ */
+export class ServerLog extends Model<ServerLogAttributes, ServerLogAttributesCreation> implements ServerLogAttributes {
+  public id!: string;
+  public serverId!: string;
+  public data!: string;
+}
+
+ServerLog.init({
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  serverId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  },
+  data: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+}, {
+  sequelize,
+});
+
 
 export default sequelize;
