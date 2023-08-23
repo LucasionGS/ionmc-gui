@@ -3,6 +3,7 @@ import UserController from "./UserController";
 import AssetController from "./AssetController";
 import AppSystem from "../AppSystem";
 import ServerController from "./ServerController";
+import VersionController from "./VersionController";
 
 namespace ApiController {
   export const router = Router();
@@ -15,6 +16,7 @@ namespace ApiController {
   router.use("/user", jsonMw, UserController.router);
   router.use("/asset", AssetController.router);
   router.use("/server", jsonMw, ServerController.router);
+  router.use("/version", jsonMw, VersionController.router);
 }
 
 export default ApiController;

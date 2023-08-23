@@ -66,12 +66,15 @@ namespace ServerManager {
     });
   }
 
+  export const minServerPort = 25000;
+  export const maxServerPort = 35000;
+  
   /**
    * Find the first available port.
    */
   export async function findFirstAvailablePort(): Promise<number> {
-    const min = 25000;
-    const max = 35000;
+    const min = minServerPort;
+    const max = maxServerPort;
     const total = max - min;
     const servers = await Server.findAll({ attributes: ["port"], order: [["port", "ASC"]] });
     for (let i = 0; i < total; i++) {

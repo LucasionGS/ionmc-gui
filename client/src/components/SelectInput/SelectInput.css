@@ -1,0 +1,26 @@
+.ic-SelectInput {
+  border: none;
+  background-color: #f0f0f0;
+  border-radius: 5px;
+  color: #333;
+  padding: 10px;
+  margin: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  font-size: 1rem;
+}
+
+.ic-SelectInput:hover {
+  transform: scale(0.95);
+}
+
+.ic-provider--dark .ic-SelectInput {
+  background-color: #343a40;
+  color: #f0f0f0;
+}
+
+.ic-SelectInput-option--selected {
+  background-color: #4ea4ff;
+  color: #f0f0f0;
+}

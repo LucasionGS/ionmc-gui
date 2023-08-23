@@ -24,6 +24,11 @@ namespace BaseApi {
     return user;
   }
 
+  export function logout() {
+    setUser(null);
+    window.location.pathname = "/login";
+  }
+
   export function getToken() {
     return token;
   }

@@ -69,6 +69,48 @@ const pages: Route[] = [
       return <LoginPage />
     },
   },
+  {
+    path: /^\/logout$/,
+    title: "Logging out...",
+    component: async () => {
+      BaseApi.logout();
+      return <IoncoreLoader centered />
+    },
+  },
+  {
+    path: /^\/server$/,
+    title: "Server",
+    component: async () => {
+      const ServerPage = (await import("./pages/Server/Server")).default;
+      return <ServerPage />
+    },
+  },
+  {
+    path: /^\/server\/create$/,
+    title: "Server / Create",
+    component: async () => {
+      const ServerCreatePage = (await import("./pages/Server/ServerCreate/ServerCreate")).default;
+      return <ServerCreatePage />
+    },
+  },
+  {
+    path: /^\/server\/([^\/]+?)$/,
+    title: "Server / View",
+    component: async (id) => {
+      console.log("ServerViewPage", id);
+      const ServerViewPage = (await import("./pages/Server/ServerView/ServerView")).default;
+      return <ServerViewPage id={id} />
+    },
+  },
+  {
+    path: /^\/server\/([^\/]+?)(\/)?#(terminal|settings|worlds|datapacks)$/,
+    title: (id, location) => "Server / " + location[0].toUpperCase() + location.slice(1).toLowerCase(),
+    component: async (id) => {
+      console.log("ServerViewPage", id);
+      const ServerViewPage = (await import("./pages/Server/ServerView/ServerView")).default;
+      return <ServerViewPage id={id} />
+    },
+  },
   requirement({ permission: "DASHBOARD_VIEW" }, {
     path: /^\/admin(\/|$)/,
     title: "Admin",

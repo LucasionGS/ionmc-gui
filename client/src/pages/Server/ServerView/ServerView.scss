@@ -1,0 +1,19 @@
+.server-view-wrapper {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+}
+.server-view-navigation {
+  width: 208px;
+  padding: 16px 0px;
+}
+
+@media screen and (max-width: 768px) {
+  .server-view-wrapper {
+    flex-direction: column;
+  }
+
+  .server-view-navigation {
+    width: 100%;
+  }
+}
