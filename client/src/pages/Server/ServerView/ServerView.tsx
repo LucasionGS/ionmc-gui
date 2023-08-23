@@ -206,7 +206,7 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
           borderBottom: "4px solid #424242",
           borderBottomRightRadius: 4,
           borderBottomLeftRadius: 4,
-          boxShadow: "0px 8px 4px rgba(0, 0, 0, 0.5)",
+          boxShadow: "4px 8px 4px rgba(0, 0, 0, 0.5)",
         }}>
           <h2>{server.name}</h2>
           <p>Settings for the minecraft server</p>
