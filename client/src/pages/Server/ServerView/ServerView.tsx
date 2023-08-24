@@ -1,14 +1,15 @@
 import React from "react";
 import ServerApi from "../../../Api/ServerApi";
+import SocketApi from "../../../Api/SocketApi";
 import MainLayout from "../../../layout/MainLayout/MainLayout";
 import IoncoreLoader from "../../../components/IoncoreLoader/IoncoreLoader";
-import { Button, ButtonProps, Checkbox, Input, Paper } from "@ioncore/theme";
+import { Button, ButtonProps, Checkbox, Input, Paper, Modal, useModal, useManagedModal } from "@ioncore/theme";
 import { Link } from "@ioncore/theme/Link";
 import { ServerAttributes, ServerProperties } from "@shared/models";
 import { serverSettingsDetails } from "./serverSettingsDetails";
 import "./ServerView.scss";
 import { SelectInput } from "../../../components/SelectInput/SelectInput";
-import Modal, { useModal } from "../../../components/Modal/Modal";
+// import Modal, { useModal } from "../../../components/Modal/Modal";
 export interface ServerViewProps {
   id: string;
 }
@@ -89,18 +90,66 @@ interface ServerViewPanelProps {
  */
 function ServerViewPanel_Terminal(props: ServerViewPanelProps) {
   const { server } = props;
+
+  React.useEffect(() => {
+    SocketApi.subscribeServer(server.id, data => {
+      console.log(data);
+      addLog(data);
+    });
+    return () => {
+      SocketApi.unsubscribeServer(server.id);
+    };
+  }, [server.id]);
+
+  const [logs, addLog] = React.useReducer((state: string[], action: string) => {
+    return [...state, action];
+  }, []);
+  const [commandInput, setCommandInput] = React.useState("");
+  
   return (
     <div>
       <h2>{server.name}</h2>
       <p>Port: {server.port}</p>
       <p>Version: {server.version}</p>
       <p>RAM: {server.ram} MB</p>
+      <Button onClick={() => {
+        ServerApi.startServer(server.id).then((res) => {
+          console.log(res);
+        });
+      }}>
+        Start
+      </Button>
+      <Button onClick={() => {
+        ServerApi.stopServer(server.id).then((res) => {
+          console.log(res);
+        });
+      }}>
+        Stop
+      </Button>
+
+      <Paper>
+        <div style={{
+          height: 800,
+        }}>
+          {logs.map((log, i) => {
+            return <p key={i}>{log}</p>;
+          })}
+        </div>
+        <Input value={commandInput} onChange={(e) => {
+          setCommandInput(e.target.value);
+        }} onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            SocketApi.sendServerCommand(server.id, commandInput);
+            setCommandInput("");
+          }
+        }} />
+      </Paper>
     </div>
   );
 }
 
 function ServerViewPanel_Settings(props: ServerViewPanelProps) {
-  const saveModal = useModal();
+  const saveModal = useManagedModal();
   const [modalMessage, setModalMessage] = React.useState("");
   const { server } = props;
   const [settings, refresh] = ServerApi.useServerProperties(server.id);
@@ -288,11 +337,11 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
           <IoncoreLoader />
         )}
       </form>
-      <Modal onClose={saveModal.close} opened={saveModal.isOpen} closeOnOutsideClick>
+      <saveModal.Modal closeOnOutsideClick>
         <h2>Saved</h2>
         <p>{modalMessage}</p>
         <Button onClick={saveModal.close}>Close</Button>
-      </Modal>
+      </saveModal.Modal>
     </div>
   );
 }

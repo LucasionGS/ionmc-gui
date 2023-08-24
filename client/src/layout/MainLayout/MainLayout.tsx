@@ -32,7 +32,7 @@ export default function MainLayout(props: MainLayoutProps) {
               <Link key={1} href="/server" title="Manage your servers">My servers</Link>,
               user.isAdmin && <Link key={2} href="/admin" title="Admin Dashboard">Admin</Link>,
               <Link key={3} href="/logout"><Button title="Log out" size="small"><IconLogout /></Button></Link>,
-              <Link key={4} href={`/user/${user.id}`} title="Profile">{user.username}</Link>,
+              // <Link key={4} href={`/user/${user.id}`} title="Profile">{user.username}</Link>,
             ]) : ([
               // When user is not logged in
               <Link key={5} href="/login" title="Login"><IconLogin /></Link>

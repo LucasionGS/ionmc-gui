@@ -3,7 +3,8 @@ import { ClientUser, RoleAttributes, RoleAttributesObject, AssetAttributes } fro
 import React from "react"
 import AssetApi from "../../../Api/AssetApi";
 import { IconEdit, IconEye, IconTrash } from "@tabler/icons-react";
-import Modal, { useModal } from "../../../components/Modal/Modal"
+// import Modal, { useModal } from "../../../components/Modal/Modal"
+import { Modal, useModal, useManagedModal } from "@ioncore/theme/index"
 import "./AdminAssets.scss"
 
 export default function AdminAssets() {
@@ -12,7 +13,8 @@ export default function AdminAssets() {
   const [_updateI, _update] = React.useState(0);
   const forceUpdate = () => _update(_updateI + 1);
 
-  const { isOpen: isOpenDeleteMultiple, open: openDeleteMultiple, close: closeDeleteMultiple } = useModal();
+  // const { isOpen: isOpenDeleteMultiple, open: openDeleteMultiple, close: closeDeleteMultiple } = useModal();
+  const deleteMultiple = useManagedModal();
 
   return (
     <Paper>
@@ -37,7 +39,7 @@ export default function AdminAssets() {
         <Button
           variant="danger"
           onClick={() => {
-            openDeleteMultiple();
+            deleteMultiple.open();
           }}
         >Delete {selectedAssets.length} Assets</Button>
       )}
@@ -61,9 +63,7 @@ export default function AdminAssets() {
           />
         ))}
       </div>
-      <Modal closeOnOutsideClick opened={isOpenDeleteMultiple} onClose={() => {
-        closeDeleteMultiple();
-      }}>
+      <deleteMultiple.Modal closeOnOutsideClick>
         <h1>Delete {selectedAssets.length} assets?</h1>
         <p>This cannot be undone.</p>
         <Button variant="danger" onClick={async () => {
@@ -71,20 +71,22 @@ export default function AdminAssets() {
             await AssetApi.deleteAsset(a.id);
           }));
           updateAssets();
-          closeDeleteMultiple();
+          deleteMultiple.close();
           setSelectedAssets([]);
         }}>Delete</Button>
         <Button onClick={() => {
-          closeDeleteMultiple();
+          deleteMultiple.close();
         }}>Cancel</Button>
-      </Modal>
+      </deleteMultiple.Modal>
     </Paper>
   )
 }
 
 function AssetItem({ asset, selectedAssets, onEditFinished, onSelectChange }: { asset: AssetAttributes, selectedAssets: AssetAttributes[], onEditFinished?: () => void, onSelectChange?: (checked: boolean) => void }) {
-  const { isOpen: isOpenView, open: openView, close: closeView } = useModal();
-  const { isOpen: isOpenDelete, open: openDelete, close: closeDelete } = useModal();
+  // const { isOpen: isOpenView, open: openView, close: closeView } = useModal();
+  const view = useManagedModal();
+  // const { isOpen: isOpenDelete, open: openDelete, close: closeDelete } = useModal();
+  const del = useManagedModal();
 
   const selected = React.useMemo(() => {
     return selectedAssets.find(a => a.id === asset.id) !== undefined;
@@ -103,7 +105,7 @@ function AssetItem({ asset, selectedAssets, onEditFinished, onSelectChange }: { 
                 // Open new tab
                 window.open(url, "_blank");
               }
-              else openView();
+              else view.open();
             }}
             src={url}
             alt={asset.name}
@@ -113,30 +115,26 @@ function AssetItem({ asset, selectedAssets, onEditFinished, onSelectChange }: { 
           <Checkbox checked={selected} onChange={(c) => onSelectChange?.(c)} />
         </div>
       </div>
-      <Modal closeOnOutsideClick opened={isOpenView} onClose={() => {
-        closeView();
-      }}>
+      <view.Modal closeOnOutsideClick>
         <p>{asset.name}</p>
         <Button variant="success" onClick={() => {
-          closeView();
+          view.close();
         }}>Done</Button>
-        <Button variant="danger" onClick={openDelete}>Delete</Button>
-      </Modal>
-      <Modal closeOnOutsideClick opened={isOpenDelete} onClose={() => {
-        closeDelete();
-      }}>
+        <Button variant="danger" onClick={del.open}>Delete</Button>
+      </view.Modal>
+      <del.Modal closeOnOutsideClick>
         <h1>Delete {asset.name}?</h1>
         <p>This cannot be undone.</p>
         <Button variant="danger" onClick={() => {
           AssetApi.deleteAsset(asset.id).then(() => {
-            closeDelete();
+            del.close();
             onEditFinished?.();
           });
         }}>Delete</Button>
         <Button onClick={() => {
-          closeDelete();
+          del.close();
         }}>Cancel</Button>
-      </Modal>
+      </del.Modal>
     </>
   );
 }

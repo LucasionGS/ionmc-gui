@@ -22,7 +22,7 @@ function HomePage() {
 
         {!user && (
           <p>
-            <Link href="/login">Login</Link> or <Link href="/register">Register</Link> to get started.
+            <Link href="/login">Login</Link> to get started.
           </p>
         )}
       </Paper>

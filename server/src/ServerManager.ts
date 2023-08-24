@@ -1,8 +1,9 @@
 import { IonMC, Api, Config, Server as McServer } from "ionmc";
 import AppSystem from "./AppSystem";
 import Path from "path";
-import { Server } from "./sequelize";
+import { Server, User } from "./sequelize";
 import fsp from "fs/promises";
+import { io } from "./express";
 
 namespace ServerManager {
   const serverFolder = Path.resolve(AppSystem.getUserDataDirectory(), "servers");
@@ -68,7 +69,7 @@ namespace ServerManager {
 
   export const minServerPort = 25000;
   export const maxServerPort = 35000;
-  
+
   /**
    * Find the first available port.
    */
@@ -137,8 +138,10 @@ namespace ServerManager {
    */
   export async function stop(mcserver: McServer) {
     try {
-      mcserver.stop();
+      mcserver.stop(true);
+      // mcserver.executeCustomCommand("stop")
     } catch (error) {
+      console.error(error);
       // IonMC has a bug where it throws an error because it tries to write to the server console after it's already stopped
       // This still stops the server, so we can just ignore the error
     }
@@ -165,7 +168,8 @@ namespace ServerManager {
   export async function getMCServer(server: Server) {
     const serverPath = Path.resolve(serverFolder, server.id, "server.jar");
     const mcserver = new McServer(serverPath, {
-      preventStart: true
+      preventStart: true,
+      noReadline: true,
     });
 
     return mcserver;

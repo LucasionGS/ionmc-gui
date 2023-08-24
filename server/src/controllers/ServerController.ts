@@ -5,6 +5,7 @@ import { Server as McServer } from "ionmc";
 import { ConsoleInfo } from "ionmc/dist/lib/Server";
 import AppSystem from "../AppSystem";
 import ServerProperties from "ionmc/shared/ServerProperties";
+import { io } from "../express";
 
 namespace ServerController {
   export const router = Router();
@@ -76,10 +77,14 @@ namespace ServerController {
     if (isStarted) return res.status(400).json({ error: "Server is already started" });
     await ServerManager.start(mcserver);
 
+    const chn = `server/${server.id}`;
+    const channel = io.to(chn);
     const onData = (msg: ConsoleInfo) => {
       const txt = msg.toString();
       console.log(txt);
       server.log(txt);
+
+      channel.emit(chn, txt);
     }
 
     mcserver.on("data", onData);
@@ -99,8 +104,8 @@ namespace ServerController {
       return res.status(403).json({ error: "You don't have permission to stop this server" });
     }
 
-    const mcserver = await ServerManager.getMCServer(server);
-
+    const mcserver = ServerManager.getRunningServerById(server.id);
+    if (!mcserver) return res.status(400).json({ error: "Server is not running" });
     await ServerManager.stop(mcserver);
 
     return res.json({ message: "Server stopped" });

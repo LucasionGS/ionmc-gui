@@ -1,5 +1,7 @@
 import express from "express";
+import http from "http";
 import https from "https";
+import { Server as IoServer} from "socket.io";
 import fs from "fs";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import fetch from "cross-fetch";
@@ -18,15 +20,24 @@ const swaggerEnabled = (process.env.SWAGGER || "true").toLowerCase() === "true";
 
 const certificatePath = process.env.CERTIFICATE_PATH || Path.resolve(__dirname, "../certificate.pfx");
 let httpsEnabled = false;
+let httpServer: https.Server | http.Server;
 if (fs.existsSync(certificatePath)) {
   const https_options: https.ServerOptions = {
     pfx: fs.readFileSync(certificatePath),
     passphrase: process.env.CERTIFICATE_PASSPHRASE
   };
-  https.createServer(https_options, app).listen(portSSL);
+  httpServer = https.createServer(https_options, app);
+  httpServer.listen(portSSL);
   console.log(`HTTPS server started at https://localhost:${portSSL}`);
   httpsEnabled = true;
 }
+else {
+  httpServer = http.createServer(app);
+  httpServer.listen(port);
+  console.log(`HTTP server started at http://localhost:${port}`);
+}
+
+export const io = new IoServer(httpServer);
 
 const redirectHTTPS = (process.env.REDIRECT_HTTPS || "false").toLowerCase() === "true";
 if (redirectHTTPS) {
@@ -67,17 +78,17 @@ if (process.env.NODE_ENV === "development") {
       }
     }));
 
-    app.listen(port, () => {
-      console.log(`Server started at http://localhost:${port} in DEVELOPMENT mode`);
-    });
+    // app.listen(port, () => {
+    //   console.log(`Server started at http://localhost:${port} in DEVELOPMENT mode`);
+    // });
   })();
 }
 else {
   // Serve static files from the build folder
   app.use(express.static("public"), (req, res) => res.sendFile("index.html", { root: "public" }));
-  app.listen(port, () => {
-    console.log(`Server started at http://localhost:${port} in PRODUCTION mode`);
-  });
+  // app.listen(port, () => {
+  //   console.log(`Server started at http://localhost:${port} in PRODUCTION mode`);
+  // });
 }
 /**
  * Sets up Swagger

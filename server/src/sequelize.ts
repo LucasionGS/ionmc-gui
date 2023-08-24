@@ -199,6 +199,15 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     };
   }
 
+  public static async fromToken(token: string) {
+    const clientUser = jwt.verify(token, process.env.JWT_SECRET!) as ClientUser;
+    const user = await User.findByPk(clientUser.id);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    return user;
+  }
+
   /**
    * Get the user fetched from the database from the request.
    * @param req Request from express

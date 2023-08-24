@@ -55,7 +55,7 @@ namespace ServerApi {
    * @param id The ID of the server to start.
    */
   export function startServer(id: string) {
-    return BaseApi.GET(`/server/${id}/start`).then((res) => res.json()) as Promise<ServerAttributes>;
+    return BaseApi.GET(`/server/${id}/start`).then((res) => res.json()) as Promise<{ message: string }>;
   }
 
   /**
@@ -63,7 +63,7 @@ namespace ServerApi {
    * @param id The ID of the server to stop.
    */
   export function stopServer(id: string) {
-    return BaseApi.GET(`/server/${id}/stop`).then((res) => res.json()) as Promise<ServerAttributes>;
+    return BaseApi.GET(`/server/${id}/stop`).then((res) => res.json()) as Promise<{ message: string }>;
   }
 
   /**
