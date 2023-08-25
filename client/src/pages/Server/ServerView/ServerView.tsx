@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Fragment } from "react";
 import ServerApi from "../../../Api/ServerApi";
 import SocketApi from "../../../Api/SocketApi";
 import MainLayout from "../../../layout/MainLayout/MainLayout";
@@ -8,6 +8,7 @@ import { Link } from "@ioncore/theme/Link";
 import { ServerAttributes, ServerProperties, ServerStatus } from "@shared/models";
 import { serverSettingsDetails } from "./serverSettingsDetails";
 import "./ServerView.scss";
+import { IconCircleLetterQ, IconQuestionMark, IconZoomCancel, IconZoomQuestion } from "@tabler/icons-react";
 // import Modal, { useModal } from "../../../components/Modal/Modal";
 export interface ServerViewProps {
   id: string;
@@ -315,7 +316,7 @@ function PlayerListItem(props: {
                 if (value === "<Gamemode>") return;
                 SocketApi.sendServerCommand(serverId, `gamemode ${value} ${player}`, true);
               }} />
-            
+
               <Button variant="danger" onClick={() => {
                 SocketApi.sendServerCommand(serverId, `kill ${player}`, true);
                 pm.close();
@@ -358,19 +359,22 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
 
   React.useEffect(() => {
     // Update when the settings are refreshed
-    for (const key in settings) {
-      const value = settings[key as keyof ServerProperties];
-      if (formData[key as keyof ServerProperties] !== value) {
-        updateFormData({
-          key: key as keyof ServerProperties,
-          value,
-        });
+    if (settings) {
+      for (const key in settings) {
+        const value = settings[key as keyof ServerProperties];
+        if (formData[key as keyof ServerProperties] !== value) {
+          updateFormData({
+            key: key as keyof ServerProperties,
+            value,
+          });
+        }
       }
     }
   }, [settings]);
 
   // Category order. None listed goes to the bottom.
   const catOrder = [
+    "Essentials",
     "General",
     "World",
     "Network",
@@ -452,13 +456,19 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
           borderBottomRightRadius: 4,
           borderBottomLeftRadius: 4,
           boxShadow: "4px 8px 4px rgba(0, 0, 0, 0.5)",
+          zIndex: 1,
         }}>
           <h2>{server.name}</h2>
           <p>Settings for the minecraft server</p>
           {saveButton}
         </div>
         {settings ? (
-          <div>
+          <div style={{
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 8
+          }}>
             {allSettingsKeys.map((key) => {
               // console.log(key);
               // console.log(details);
@@ -471,67 +481,78 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
               category = nCategory;
 
               return (
-                <div key={key}>
-                  {isNewCategory && <h2>{category}</h2>}
-                  <h3>{name}</h3>
-                  <p>{description}</p>
-                  {type === "boolean" ? (
-                    <Checkbox
-                      checked={formData[key as keyof ServerProperties] as boolean}
-                      label={name}
-                      alwaysShowTick
-                      onChange={(c) => {
-                        const value = c;
-                        updateFormData({
-                          key: key as keyof ServerProperties,
-                          value,
-                        });
-                      }}
-                    />
-                  ) : type === "number" ? (
-                    <Input
-                      type="number"
-                      value={formData[key] as number}
-                      onChange={(e) => {
-                        const value = e.target.valueAsNumber;
-                        updateFormData({
-                          key: key,
-                          value,
-                        });
-                      }}
-                    />
-                  ) : Array.isArray(type) ? (
-                    /* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */
-                    <SelectInput
-                      options={type}
-                      value={formData[key] as string}
-                      onChange={(value) => {
-                        updateFormData({
-                          key: key,
-                          value,
-                        });
-                      }}
-                    />
-                  ) : (
-                    <Input
-                      type="text"
-                      value={formData[key] as string}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        updateFormData({
-                          key: key,
-                          value,
-                        });
-                      }}
-                    />
-                  )}
-                  <hr />
-                </div>
+                <Fragment key={key}>
+                  {isNewCategory && <h2 style={{
+                      color: "#d4b400",
+                      width: "100%",
+                    }}>{category}</h2>}
+                  <Paper className="server-view-settings-block">
+                    <h3 style={{ margin: 0, marginLeft: 4 }} title={description}>{name} {description && <IconZoomQuestion style={{ transform: "translateY(6px)" }} />}</h3>
+                    {/* <p>{description}</p> */}
+                    {type === "boolean" ? (
+                      <Checkbox
+                        checked={formData[key as keyof ServerProperties] as boolean}
+                        label={name}
+                        alwaysShowTick
+                        onChange={(c) => {
+                          const value = c;
+                          updateFormData({
+                            key: key as keyof ServerProperties,
+                            value,
+                          });
+                        }}
+                      />
+                    ) : type === "number" ? (
+                      <Input
+                        type="number"
+                        value={formData[key] as number}
+                        onChange={(e) => {
+                          const value = e.target.valueAsNumber;
+                          updateFormData({
+                            key: key,
+                            value,
+                          });
+                        }}
+                        containerStyle={{ width: "100%" }}
+                        style={{ width: "100%" }}
+                      />
+                    ) : Array.isArray(type) ? (
+                      /* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */
+                      <SelectInput
+                        options={type}
+                        value={formData[key] as string}
+                        onChange={(value) => {
+                          updateFormData({
+                            key: key,
+                            value,
+                          });
+                        }}
+                      />
+                    ) : (
+                      <Input
+                        type="text"
+                        value={formData[key] as string}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          updateFormData({
+                            key: key,
+                            value,
+                          });
+                        }}
+                        containerStyle={{ width: "100%" }}
+                        style={{ width: "100%" }}
+                      />
+                    )}
+                  </Paper>
+                </Fragment>
               );
             })}
           </div>
         ) : (
-          <IoncoreLoader />
+          <>
+            <IoncoreLoader />
+            <p>Make sure you have run the server at least once before changing the settings.</p>
+          </>
         )}
       </form>
       <saveModal.Modal closeOnOutsideClick>

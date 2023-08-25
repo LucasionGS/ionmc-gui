@@ -30,6 +30,11 @@
   width: 50%;
 }
 
+.server-view-settings-block {
+  min-width: calc(25% - 6px);
+  max-width: calc(50% - 6px);
+}
+
 @media screen and (max-width: 768px) {
   .server-view-wrapper {
     flex-direction: column;

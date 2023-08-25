@@ -6,19 +6,19 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
     "string",
     "MOTD",
     "The message of the day displayed in the server list.",
-    "General"
+    "Essentials"
   ],
   "max-players": [
     "number",
     "Max Players",
     "The maximum number of players allowed on the server.",
-    "General"
+    "Essentials"
   ],
   "level-name": [
     "string",
     "Level Name",
     "The name of the world.",
-    "World"
+    "Essentials"
   ],
   "spawn-protection": [
     "number",
@@ -174,7 +174,7 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
     "boolean",
     "PvP",
     "Whether to enable PvP.",
-    "Difficulty"
+    "Essentials"
   ],
   "allow-flight": [
     "boolean",
@@ -200,7 +200,7 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
       "hard"],
     "Difficulty",
     "The difficulty level of the game.",
-    "Difficulty"
+    "Essentials"
   ],
   "player-idle-timeout": [
     "number",
@@ -248,7 +248,7 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
     "string",
     "Server IP",
     "The IP address that the server will bind to.",
-    "Network"
+    "Essentials"
   ],
   "server-port": [
     "number",
