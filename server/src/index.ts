@@ -15,7 +15,8 @@ io.on("connection", (socket) => {
     socket.join(`server/${id}`);
     console.log("Subscribed to server", id);
 
-    socket.on(`server/${id}/command`, async (command: string) => {
+    socket.removeAllListeners(`server/${id}/command`);
+    socket.on(`server/${id}/command`, async (command: string, requestStatusUpdate: boolean) => {
       const user = await User.fromToken(token).catch(() => null);
       if (!user) return;
       if (server.userId !== user.id && !await user.hasPermission("SERVER.COMMAND")) {
@@ -29,6 +30,12 @@ io.on("connection", (socket) => {
       } catch (error) {
         console.error(error);
       }
+
+      if (requestStatusUpdate) {
+        setTimeout(async () => {
+          socket.emit(`server/${id}`, null, await ServerManager.getStatus(server));
+        }, 500);
+      }
     });
 
     socket.once("disconnect", () => {
@@ -40,6 +47,7 @@ io.on("connection", (socket) => {
 
   socket.on("unsubscribe", (id: string) => {
     socket.leave(`server/${id}`);
+    socket.removeAllListeners(`server/${id}/command`);
     console.log("Unsubscribed to server", id);
   });
 });

@@ -13,18 +13,38 @@ function HomePage() {
   return (
     <MainLayout>
       <Paper>
-        <h3>
-          Welcome to IonMC!
-        </h3>
-        <p>
-          IonMC is a Minecraft server hosting platform.
-        </p>
-
-        {!user && (
+        <div style={{
+          textAlign: "center",
+        }}>
+          <img src="/favicon.ico" alt="IonMC" style={{
+            width: 128,
+            height: 128,
+          }} />
+          <h3>
+            Welcome to IonMC!
+          </h3>
           <p>
-            <Link href="/login">Login</Link> to get started.
+            IonMC is a Minecraft server hosting platform.
           </p>
-        )}
+          <hr />
+          <p>
+            IonMC helps you manage your servers for friends, or for your community.
+            <br />
+            Easily create, manage, and configure multiple servers, each with their own settings, datapacks, and worlds to utilise.
+          </p>
+          {!user ? (
+            <>
+              <p>
+                <Link href="/login">Login</Link> to get started.
+                <br />
+              </p>
+              <Link href="/login"><Button size="large" fullWidth>Login</Button></Link>
+            </>
+          ) : (
+            <></>
+          )}
+        </div>
+
       </Paper>
     </MainLayout>
   );

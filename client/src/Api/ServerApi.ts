@@ -1,6 +1,6 @@
 import React from "react";
 import BaseApi from "./BaseApi";
-import { ServerAttributes, ServerProperties } from "@shared/models"
+import { ServerAttributes, ServerProperties, ServerStatus } from "@shared/models"
 import promiseUseHook from "../hooks/promiseUseHook";
 
 namespace ServerApi {
@@ -54,6 +54,14 @@ namespace ServerApi {
    * Start a server.
    * @param id The ID of the server to start.
    */
+  export function getServerLog(id: string) {
+    return BaseApi.GET(`/server/${id}/logs`).then((res) => res.json()) as Promise<string[]>;
+  }
+
+  /**
+   * Start a server.
+   * @param id The ID of the server to start.
+   */
   export function startServer(id: string) {
     return BaseApi.GET(`/server/${id}/start`).then((res) => res.json()) as Promise<{ message: string }>;
   }
@@ -102,6 +110,19 @@ namespace ServerApi {
   export function updateServerProperties(id: string, properties: Partial<ServerProperties>) {
     return BaseApi.PUT(`/server/${id}/properties`, {}, properties).then((res) => res.json()) as Promise<{ message: string }>;
   }
+
+  /**
+   * Get the server's status.
+   */
+  export function getStatus(id: string) {
+    return BaseApi.GET(`/server/${id}/status`).then((res) => res.json()) as Promise<ServerStatus>;
+  }
+
+  /**
+   * React hook for getting the server's status.
+   * @returns A tuple containing the status and a function to refresh the status.
+   */
+  export const useStatus = promiseUseHook(getStatus);
 }
 
 export default ServerApi;

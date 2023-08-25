@@ -1,6 +1,7 @@
 import React from "react";
 import BaseApi from "./BaseApi";
 import { RoleAttributes, ClientUser, RoleAttributesObject } from "@shared/models"
+import promiseUseHook from "../hooks/promiseUseHook";
 
 namespace UserApi {
   export async function login(username: string, password: string) {
@@ -170,15 +171,20 @@ namespace UserApi {
   }
 
   /**
-   * Check if the current user has a specific role.
+   * Check if the current user has a specific permission.
    */
   export async function hasPermission(permission: string) {
     if (await hasRole("admin")) return true;
     const perms = await getUserPermissions();
-    console.log(perms);
+    // console.log(perms);
     
     return perms.some(r => r.toUpperCase() === permission.toUpperCase());
   }
+
+  /**
+   * React hook for checking if the current user has a specific permission.
+   */
+  export const useHasPermission = promiseUseHook(hasPermission, false);
 }
 
 export default UserApi;

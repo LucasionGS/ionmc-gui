@@ -8,12 +8,42 @@
   padding: 16px 0px;
 }
 
+.terminal-line {
+  display: inline-block;
+  word-wrap: break-word;
+  width: 95%;
+  max-width: 50vw;
+  padding: 8px;
+  margin: 0;
+  &:hover {
+    background-color: #1e1e1e;
+  }
+}
+
+.server-view-terminal {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+}
+
+.server-view-terminal-info {
+  width: 50%;
+}
+
 @media screen and (max-width: 768px) {
   .server-view-wrapper {
     flex-direction: column;
   }
 
   .server-view-navigation {
+    width: 100%;
+  }
+
+  .server-view-terminal {
+    flex-direction: column-reverse;
+  }
+
+  .server-view-terminal-info {
     width: 100%;
   }
 }

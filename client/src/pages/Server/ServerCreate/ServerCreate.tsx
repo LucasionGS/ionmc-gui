@@ -7,6 +7,7 @@ import { SelectInput } from "../../../components/SelectInput/SelectInput";
 import Modal, { useModal } from "../../../components/Modal/Modal";
 import IoncoreLoader from "../../../components/IoncoreLoader/IoncoreLoader";
 import { ServerAttributes } from "@shared/models";
+import UserApi from "../../../Api/UserApi";
 
 export default function ServerCreatePage() {
   const user = BaseApi.getUser();
@@ -14,7 +15,7 @@ export default function ServerCreatePage() {
   const [name, setName] = React.useState("");
   const [version, setVersion] = React.useState("latest");
   const [ram, setRam] = React.useState(1024);
-  const isAdmin = !!user?.isAdmin;
+  const [freeRam] = UserApi.useHasPermission("SERVER.RAM");
   const router = useRouter();
 
   const [createdServer, setCreatedServer] = React.useState<ServerAttributes | null>(null);
@@ -38,7 +39,15 @@ export default function ServerCreatePage() {
         <form onSubmit={onSubmit}>
           <Input required value={name} onChange={e => setName(e.target.value)} label="Server name*" />
           <br />
-          <Input min={256} max={isAdmin ? (1024 * 16) : 1024} placeholder="1024" type="number" value={ram} onChange={e => setRam(e.target.valueAsNumber)} label={"Memory (MB)" + (isAdmin ? "*" : " (Limited for non-admins)")} />
+          <sup>
+            The server name is used to identify your server. This can be anything you want.
+          </sup>
+          <br />
+          <Input min={256} max={freeRam ? (1024 * 16) : 1024} placeholder="1024" type="number" value={ram} onChange={e => setRam(e.target.valueAsNumber)} label={"Memory (MB)" + (freeRam ? "*" : " (Limited for non-admins)")} />
+          <br />
+          <sup>
+            The amount of memory your server will have. The more memory, the better your server will perform.
+          </sup>
           <br />
           <div style={{
             display: "inline-block",
@@ -46,6 +55,7 @@ export default function ServerCreatePage() {
             boxSizing: "border-box",
           }}>
             <label className="ic-Input-label">Version</label>
+            {/* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */}
             <SelectInput value={version} onChange={v => setVersion(v)} options={["latest", ...(versions ?? [])]} />
           </div>
           <br />

@@ -138,18 +138,23 @@ namespace ServerManager {
    */
   export async function stop(mcserver: McServer) {
     try {
-      mcserver.stop(true);
-      // mcserver.executeCustomCommand("stop")
+      mcserver.stop();
     } catch (error) {
       console.error(error);
       // IonMC has a bug where it throws an error because it tries to write to the server console after it's already stopped
       // This still stops the server, so we can just ignore the error
     }
+    removeFromRunning(mcserver);
+  }
+
+  /**
+   * Remove a server from the running servers list.
+   */
+  export async function removeFromRunning(mcserver: McServer) {
     let index: number;
     while ((index = runningServers.indexOf(mcserver)) !== -1) {
       runningServers.splice(index, 1);
     }
-    console.log("Server has been stopped");
   }
 
   /**
@@ -190,6 +195,43 @@ namespace ServerManager {
   }
 
   const runningServers: McServer[] = [];
+
+  /**
+   * Get the status of a server.
+   * @param id The ID of the server to get the status of.
+   */
+  export async function getStatus(id: string): Promise<ServerStatus>;
+  /**
+   * Get the status of a server.
+   * @param server The server to get the status of.
+  */
+  export async function getStatus(server: Server): Promise<ServerStatus>;
+  export async function getStatus(id: string | Server): Promise<ServerStatus> {
+    const server = id instanceof Server ? id : await Server.findByPk(id);
+    if (!server) throw new Error("Server not found");
+    let mcServer = ServerManager.getRunningServerById(server.id);
+    if (!mcServer) {
+      mcServer = await ServerManager.getMCServer(server);
+    }
+
+    const status = mcServer.getStatus();
+    const admins = ((await mcServer.getOperators().catch(() => [])).map(o => o.name)).filter(n => n);
+    const players = mcServer.userList?.map(u => u.username);
+
+    const result = {
+      status,
+      players,
+      admins
+    };
+
+    return result;
+  }
+}
+
+export interface ServerStatus {
+  status: "running" | "starting" | "offline";
+  players: string[];
+  admins: string[];
 }
 
 export default ServerManager;

@@ -26,6 +26,13 @@ namespace ServerController {
     if (!name || !version || !ram) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+
+    if (!await user.hasPermission("SERVER.RAM")) {
+      const min = 512, max = 1024;
+      if (ram < min || ram > max) {
+        return res.status(400).json({ error: `RAM must be between ${min} and ${max}` });
+      }
+    }
     const server = await ServerManager.create({
       name,
       version,
@@ -81,18 +88,35 @@ namespace ServerController {
     const channel = io.to(chn);
     const onData = (msg: ConsoleInfo) => {
       const txt = msg.toString();
-      console.log(txt);
       server.log(txt);
 
       channel.emit(chn, txt);
     }
 
+    const sendStatus = async () => channel.emit(chn, null, await ServerManager.getStatus(server));
+    sendStatus();
     mcserver.on("data", onData);
-    mcserver.once("stopped", () => {
-      mcserver.off("data", onData);
-      console.log("Stopped listening to data on server", server.id);
+    mcserver.on("connect", async (user) => {
+      console.log("Server connected:", user);
+      sendStatus();
     });
 
+    mcserver.on("disconnect", async (user) => {
+      console.log("Server disconnected:", user);
+      sendStatus();
+    });
+
+    mcserver.on("ready", async () => {
+      console.log("Server ready");
+      sendStatus();
+    });
+    
+    mcserver.on("stopped", async () => {
+      console.log("Stopped listening to data on server", server.id);
+      mcserver.removeAllListeners();
+      ServerManager.removeFromRunning(mcserver);
+      sendStatus();
+    });
     return res.json({ message: "Server started" });
   });
 
@@ -109,6 +133,18 @@ namespace ServerController {
     await ServerManager.stop(mcserver);
 
     return res.json({ message: "Server stopped" });
+  });
+
+  router.get("/:id/logs", User.$middleware(), async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.VIEW")) {
+      return res.status(403).json({ error: "You don't have permission to view this server's logs" });
+    }
+
+    const logs = await server.getLogs({ limit: -50 });
+    return res.json(logs.map(l => l.data));
   });
 
   router.get("/:id/properties", User.$middleware(), async (req, res) => {
@@ -139,7 +175,7 @@ namespace ServerController {
     }
 
     let error: string | null = null;
-    
+
     if (typeof newSettings["server-port"] === "number" && newSettings["server-port"] !== server.port) {
       if (newSettings["server-port"] < ServerManager.minServerPort || newSettings["server-port"] > ServerManager.maxServerPort) {
         error = `Port must be between ${ServerManager.minServerPort} and ${ServerManager.maxServerPort}. Port is unchanged.`;
@@ -166,6 +202,20 @@ namespace ServerController {
     } catch (error: any) {
       return res.status(500).json({ error: error.message });
     }
+  });
+
+  /**
+   * Get the full server status to display on the server page.
+   */
+  router.get("/:id/status", User.$middleware(), async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.VIEW")) {
+      return res.status(403).json({ error: "You don't have permission to view this server's properties" });
+    }
+
+    res.json(await ServerManager.getStatus(server));
   });
 }
 

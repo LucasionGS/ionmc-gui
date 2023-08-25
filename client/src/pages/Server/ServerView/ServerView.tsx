@@ -3,12 +3,11 @@ import ServerApi from "../../../Api/ServerApi";
 import SocketApi from "../../../Api/SocketApi";
 import MainLayout from "../../../layout/MainLayout/MainLayout";
 import IoncoreLoader from "../../../components/IoncoreLoader/IoncoreLoader";
-import { Button, ButtonProps, Checkbox, Input, Paper, Modal, useModal, useManagedModal } from "@ioncore/theme";
+import { Button, ButtonProps, Checkbox, Input, Paper, Modal, useModal, useManagedModal, SelectInput, Select } from "@ioncore/theme";
 import { Link } from "@ioncore/theme/Link";
-import { ServerAttributes, ServerProperties } from "@shared/models";
+import { ServerAttributes, ServerProperties, ServerStatus } from "@shared/models";
 import { serverSettingsDetails } from "./serverSettingsDetails";
 import "./ServerView.scss";
-import { SelectInput } from "../../../components/SelectInput/SelectInput";
 // import Modal, { useModal } from "../../../components/Modal/Modal";
 export interface ServerViewProps {
   id: string;
@@ -84,67 +83,264 @@ interface ServerViewPanelProps {
   server: ServerAttributes
 }
 
+function firstUppercase(str: string) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 // Panels
 /**
  * Terminal panel to interact with the server console.
  */
 function ServerViewPanel_Terminal(props: ServerViewPanelProps) {
   const { server } = props;
+  const logDiv = React.useRef<HTMLDivElement>(null);
+  const [currentStatus, refreshStatus, setCurrentStatus] = ServerApi.useStatus(server.id);
 
   React.useEffect(() => {
-    SocketApi.subscribeServer(server.id, data => {
-      console.log(data);
-      addLog(data);
+    SocketApi.subscribeServer(server.id, (data, newStatus) => {
+      if (data) {
+        console.log(data);
+        addLog(data);
+      }
+      if (newStatus) {
+        setCurrentStatus(newStatus);
+      }
     });
+
+    ServerApi.getServerLog(server.id).then(logs => {
+      logs.reverse();
+      for (let i = 0; i < logs.length; i++) {
+        const log = logs[i];
+        addLog(log);
+      }
+    });
+
     return () => {
       SocketApi.unsubscribeServer(server.id);
     };
   }, [server.id]);
 
   const [logs, addLog] = React.useReducer((state: string[], action: string) => {
+    setTimeout(() => {
+      if (logDiv.current) {
+        logDiv.current.scrollTop = logDiv.current.scrollHeight;
+      }
+    }, 10);
     return [...state, action];
   }, []);
   const [commandInput, setCommandInput] = React.useState("");
-  
-  return (
-    <div>
-      <h2>{server.name}</h2>
-      <p>Port: {server.port}</p>
-      <p>Version: {server.version}</p>
-      <p>RAM: {server.ram} MB</p>
-      <Button onClick={() => {
-        ServerApi.startServer(server.id).then((res) => {
-          console.log(res);
-        });
-      }}>
-        Start
-      </Button>
-      <Button onClick={() => {
-        ServerApi.stopServer(server.id).then((res) => {
-          console.log(res);
-        });
-      }}>
-        Stop
-      </Button>
 
-      <Paper>
-        <div style={{
-          height: 800,
+  return (
+    <div
+      className="server-view-terminal"
+    >
+      <Paper style={{
+        width: "100%",
+        backgroundColor: "#111111",
+      }}>
+        <div ref={logDiv} style={{
+          width: "100%",
+          height: "calc(80vh - 6rem)",
+          overflowY: "auto",
         }}>
           {logs.map((log, i) => {
-            return <p key={i}>{log}</p>;
+            return <TerminalLine key={i} text={log} />;
           })}
         </div>
-        <Input value={commandInput} onChange={(e) => {
-          setCommandInput(e.target.value);
-        }} onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            SocketApi.sendServerCommand(server.id, commandInput);
-            setCommandInput("");
-          }
-        }} />
+        <Input
+          containerStyle={{
+            width: "100%",
+          }}
+          style={{
+            width: "100%",
+            filter: currentStatus?.status !== "running" ? "brightness(0.5)" : "",
+          }}
+          autoCapitalize="off"
+
+          value={commandInput} onChange={(e) => {
+            setCommandInput(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              SocketApi.sendServerCommand(server.id, commandInput, true);
+              setCommandInput("");
+            }
+          }}
+          placeholder={currentStatus?.status !== "running" ? "Server is not running" : "Enter command..."}
+          disabled={currentStatus?.status !== "running"}
+        />
+      </Paper>
+      <Paper
+        className="server-view-terminal-info"
+      >
+        <h2>{server.name}</h2>
+        <p>Port: {server.port}</p>
+        <p>Version: {server.version}</p>
+        <p>RAM: {server.ram} MB</p>
+        <p>Status: <span style={{
+          color: currentStatus?.status === "running" ? "lightgreen" : currentStatus?.status === "starting" ? "yellow" : "red",
+        }}>{firstUppercase(currentStatus?.status ?? "?")}</span></p>
+        {
+          currentStatus && (
+            currentStatus.status === "running" ? (
+              <Button fullWidth variant="danger" onClick={() => {
+                (currentStatus as any).status = "stopping...";
+                setCurrentStatus(currentStatus);
+                ServerApi.stopServer(server.id).then((res) => {
+                  addLog(res.message);
+                });
+              }}>
+                Stop
+              </Button>
+            ) : currentStatus.status === "offline" ? (
+              <Button fullWidth variant="success" onClick={() => {
+                ServerApi.startServer(server.id).then((res) => {
+                  addLog(res.message);
+                });
+              }}>
+                Start
+              </Button>
+            ) : null
+          )
+        }
+        {
+          currentStatus?.status === "running" && (<PlayerList serverId={server.id} {...currentStatus} />)
+        }
       </Paper>
     </div>
+  );
+}
+
+function TerminalLine(props: {
+  text: string;
+}) {
+  // Format with colors
+  // [xx:xx:xx] [SOURCE/TYPE]: text
+  const regex = /\[(\d{2}:\d{2}:\d{2})\] \[([\w\s-]+)\/(\w+)\]: (.+)/;
+  const match = props.text?.match(regex);
+
+  return (
+    <p className="terminal-line">
+      {match ? (
+        <>
+          <span style={{
+            color: "gray",
+          }}>{match[1]}</span>
+          <span style={{
+            color: "cyan",
+          }}> [{match[2]}/{match[3]}]:</span>
+          <span>&nbsp;{match[4]}</span>
+        </>
+      ) : (
+        <span>{props.text}</span>
+      )}
+    </p>
+  );
+}
+
+function PlayerList(props: {
+  players: string[];
+  admins: string[];
+  serverId: string;
+}) {
+  const { players, serverId, admins } = props;
+  return (
+    <div>
+      {admins.length > 0 && (
+        <>
+          <h3>Admins</h3>
+          <ul style={{
+            listStyle: "none",
+            padding: 0,
+            borderLeft: "4px solid #FFD700",
+          }}>
+            {admins.map((player, i) => {
+              return <li key={player}>
+                <PlayerListItem player={player} serverId={serverId} isAdmin={admins.includes(player)} isOnline={players.includes(player)} />
+              </li>;
+            })}
+          </ul>
+        </>
+      )}
+      <h3>Players</h3>
+      <ul style={{
+        listStyle: "none",
+        padding: 0,
+        borderLeft: "4px solid #424242",
+      }}>
+        {players.map((player, i) => {
+          return <li key={player}>
+            <PlayerListItem player={player} serverId={serverId} isAdmin={admins.includes(player)} isOnline={true} />
+          </li>;
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function PlayerListItem(props: {
+  player: string;
+  isAdmin: boolean;
+  serverId: string;
+  isOnline: boolean;
+}) {
+  const { player, serverId, isAdmin, isOnline } = props;
+  const pm = useManagedModal();
+
+  return (
+    <>
+      <Button style={{
+        background: "transparent",
+        color: isAdmin ? "cyan" : "white",
+      }} onClick={() => pm.open()}>
+        {player}
+      </Button>
+      <pm.Modal closeOnOutsideClick>
+        <h2>{player}</h2>
+        <p>Player information</p>
+        <div style={{
+          display: "flex",
+          flexDirection: "row",
+          gap: 8,
+        }}>
+          <Button variant="warning" onClick={() => {
+            SocketApi.sendServerCommand(serverId, isAdmin ? `deop ${player}` : `op ${player}`, true);
+            pm.close();
+          }}>{isAdmin ? "Deop" : "Op"}</Button>
+
+          {isOnline && (
+            <>
+              {/* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */}
+              <SelectInput options={["<Gamemode>", "survival", "creative", "adventure", "spectator"]} onChange={(value) => {
+                if (value === "<Gamemode>") return;
+                SocketApi.sendServerCommand(serverId, `gamemode ${value} ${player}`, true);
+              }} />
+            
+              <Button variant="danger" onClick={() => {
+                SocketApi.sendServerCommand(serverId, `kill ${player}`, true);
+                pm.close();
+              }}>Kill</Button>
+
+              <Button variant="danger" onClick={() => {
+                SocketApi.sendServerCommand(serverId, `kick ${player}`, true);
+                pm.close();
+              }}>Kick</Button>
+
+              <Button variant="danger" onClick={() => {
+                SocketApi.sendServerCommand(serverId, `ban ${player}`, true);
+                pm.close();
+              }}>Ban</Button>
+            </>
+          )}
+        </div>
+        <hr />
+        <div style={{
+          textAlign: "right",
+        }}>
+          <Button variant="secondary" onClick={pm.close}>Close</Button>
+        </div>
+      </pm.Modal>
+    </>
   );
 }
 
@@ -225,7 +421,7 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
           if (changedKeys.length === 0) {
             return;
           }
-          
+
           // Only update the changed keys
           const changedData: Partial<ServerProperties> = {};
           for (const key of changedKeys) {
@@ -305,6 +501,7 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
                       }}
                     />
                   ) : Array.isArray(type) ? (
+                    /* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */
                     <SelectInput
                       options={type}
                       value={formData[key] as string}
