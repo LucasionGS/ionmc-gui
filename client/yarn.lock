@@ -112,10 +112,10 @@
   resolved "https://registry.yarnpkg.com/@esbuild/win32-x64/-/win32-x64-0.17.19.tgz#8cfaf2ff603e9aabb910e9c0558c26cf32744061"
   integrity sha512-lAhycmKnVOuRYNtRtatQR1LPQf2oYCkRGkSFnseDAKPl8lu5SOsK/e1sXe5a0Pc5kHIHe6P2I/ilntNv2xf3cA==
 
-"@ioncore/theme@^1.1.1":
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/@ioncore/theme/-/theme-1.1.1.tgz#d1449de576eb0304a311a8bcf2cc52ea8b635fbc"
-  integrity sha512-snppovWkUTxojboEl17BA367lIi96mVfq64JcrHp7O1HaRN2SN7rga+K+A16KrCzirOKFNu/UwGijp+M1U+8jw==
+"@ioncore/theme@^1.1.2":
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/@ioncore/theme/-/theme-1.1.2.tgz#20bdcf2aab6ab2b8cb4ac95900a6178f5f233f6b"
+  integrity sha512-+9UFgrM+GpGMOywlDroPTntRNFdP+tvw+MdJ/DE6y6jRKYJ0ME48HLeJkGzTmjmaTkOSeXSUcpiqW0IPtf8PJQ==
   dependencies:
     "@tabler/icons-react" "^2.32.0"
     react "^18.2.0"

@@ -1,9 +1,8 @@
 import React from "react"
 import MainLayout from "../../../layout/MainLayout/MainLayout"
-import { Paper, Input, Select, Button, useRouter } from "@ioncore/theme"
+import { Paper, Input, Select, Button, useRouter, SelectInput } from "@ioncore/theme"
 import BaseApi from "../../../Api/BaseApi";
 import ServerApi from "../../../Api/ServerApi";
-import { SelectInput } from "../../../components/SelectInput/SelectInput";
 import Modal, { useModal } from "../../../components/Modal/Modal";
 import IoncoreLoader from "../../../components/IoncoreLoader/IoncoreLoader";
 import { ServerAttributes } from "@shared/models";
