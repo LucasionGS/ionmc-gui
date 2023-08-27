@@ -7,7 +7,7 @@ namespace ServerApi {
   /**
    * Get a list of all servers that the user has access to.
    */
-  export function getServers() {
+  export async function getServers() {
     return BaseApi.GET("/server").then((res) => res.json()) as Promise<ServerAttributes[]>;
   }
 
@@ -31,7 +31,7 @@ namespace ServerApi {
    * @param version Version the server should run.
    * @param ram Amount of RAM to allocate to the server. (in MB. 1024 = 1GB)
    */
-  export function createServer(name: string, version: string, ram: number) {
+  export async function createServer(name: string, version: string, ram: number) {
     return BaseApi.POST("/server", {}, { name, version, ram }).then((res) => res.json()) as Promise<ServerAttributes>;
   }
 
@@ -39,7 +39,7 @@ namespace ServerApi {
    * Get a server by ID.
    * @param id The ID of the server to get.
    */
-  export function getServer(id: string) {
+  export async function getServer(id: string) {
     return BaseApi.GET(`/server/${id}`).then((res) => res.json()) as Promise<ServerAttributes>;
   }
 
@@ -54,7 +54,7 @@ namespace ServerApi {
    * Start a server.
    * @param id The ID of the server to start.
    */
-  export function getServerLog(id: string) {
+  export async function getServerLog(id: string) {
     return BaseApi.GET(`/server/${id}/logs`).then((res) => res.json()) as Promise<string[]>;
   }
 
@@ -62,7 +62,7 @@ namespace ServerApi {
    * Start a server.
    * @param id The ID of the server to start.
    */
-  export function startServer(id: string) {
+  export async function startServer(id: string) {
     return BaseApi.GET(`/server/${id}/start`).then((res) => res.json()) as Promise<{ message: string }>;
   }
 
@@ -70,14 +70,14 @@ namespace ServerApi {
    * Stop a server.
    * @param id The ID of the server to stop.
    */
-  export function stopServer(id: string) {
+  export async function stopServer(id: string) {
     return BaseApi.GET(`/server/${id}/stop`).then((res) => res.json()) as Promise<{ message: string }>;
   }
 
   /**
    * Get a list of all versions that the user has access to.
    */
-  export function getVersions() {
+  export async function getVersions() {
     return BaseApi.GET("/version").then((res) => res.json()) as Promise<string[]>;
   }
 
@@ -91,7 +91,7 @@ namespace ServerApi {
    * Get a server's properties.
    * @param id The ID of the server to get the properties for.
    */
-  export function getServerProperties(id: string) {
+  export async function getServerProperties(id: string) {
     return BaseApi.GET(`/server/${id}/properties`).then((res) => res.json()) as Promise<ServerProperties>;
   }
 
@@ -107,14 +107,14 @@ namespace ServerApi {
    * @param id The ID of the server to update the properties for.
    * @param properties The properties to update.
    */
-  export function updateServerProperties(id: string, properties: Partial<ServerProperties>) {
+  export async function updateServerProperties(id: string, properties: Partial<ServerProperties>) {
     return BaseApi.PUT(`/server/${id}/properties`, {}, properties).then((res) => res.json()) as Promise<{ message: string }>;
   }
 
   /**
    * Get the server's status.
    */
-  export function getStatus(id: string) {
+  export async function getStatus(id: string) {
     return BaseApi.GET(`/server/${id}/status`).then((res) => res.json()) as Promise<ServerStatus>;
   }
 
@@ -123,6 +123,49 @@ namespace ServerApi {
    * @returns A tuple containing the status and a function to refresh the status.
    */
   export const useStatus = promiseUseHook(getStatus);
+
+  /**
+   * Fetch the data from the server's world.
+   * @param id The ID of the server to fetch the world data from.
+   */
+  export async function getWorldData(id: string) {
+    return BaseApi.GET(`/server/${id}/world`).then((res) => res.json()) as Promise<string>;
+  }
+
+  /**
+   * React hook for fetching the data from the server's world.
+   * @param id The ID of the server to fetch the world data from.
+   * @returns A tuple containing the world data and a function to refresh the data.
+   */
+  export const useWorldData = promiseUseHook(getWorldData);
+
+
+  /**
+   * Download a zip file containing the server's world.
+   * @param id The ID of the server to download the world from.
+   */
+  export async function downloadWorld(id: string) {
+    const url = `${BaseApi.baseUrl}/server/${id}/world/download`;
+    console.log(url);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `world-${id}.zip`;
+    link.click();
+    // const blob = await BaseApi.GET(`${BaseApi.baseUrl}/server/${id}/world/download`).then(r => r.blob());
+    // const url = window.URL.createObjectURL(blob);
+    // window.location.assign(url);
+  }
+
+  /**
+   * Upload a zip file containing the server's world.
+   * @param id The ID of the server to upload the world to.
+   * @param file The file to upload.
+   */
+  export async function uploadWorld(id: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return BaseApi.POSTFormData(`/server/${id}/world/upload`, {}, formData).then((res) => res.json()) as Promise<{ message: string }>;
+  }
 }
 
 export default ServerApi;

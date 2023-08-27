@@ -83,7 +83,7 @@ namespace AppSystem {
   /**
    * Max file size for upload
    */
-  export const maxFileSize = (1024 * 1024) * 50; // MB
+  export const maxFileSize = (1024 * 1024) * 128; // MB
   
   /**
    * Multer uploader for express

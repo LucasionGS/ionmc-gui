@@ -103,7 +103,7 @@ const pages: Route[] = [
     },
   },
   {
-    path: /^\/server\/([^\/]+?)(\/)?#(terminal|settings|worlds|datapacks)$/,
+    path: /^\/server\/([^\/]+?)(\/)?#(terminal|settings|world|datapacks)$/,
     title: (id, location) => "Server / " + location[0].toUpperCase() + location.slice(1).toLowerCase(),
     component: async (id) => {
       console.log("ServerViewPage", id);

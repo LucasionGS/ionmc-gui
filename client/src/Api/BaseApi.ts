@@ -2,7 +2,7 @@ import { ClientUser, RoleAttributes, UserAttributes } from "@shared/models"
 
 
 namespace BaseApi {
-  const baseUrl = `${window.location.protocol}//${window.location.host}/api`;
+  export const baseUrl = `${window.location.protocol}//${window.location.host}/api`;
   const __user = window.localStorage.getItem("user");
   let user: ClientUser | null = __user ? JSON.parse(__user) : null;
   let token: string | null = window.localStorage.getItem("user_token") || null;

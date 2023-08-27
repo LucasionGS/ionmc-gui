@@ -51,6 +51,7 @@ export default function ServerViewPage(props: ServerViewProps) {
     switch (panel) {
       case "terminal": return ServerViewPanel_Terminal;
       case "settings": return ServerViewPanel_Settings;
+      case "world": return ServerViewPanel_World;
       default: return ServerViewPanel_Terminal;
     }
   }, [route]);
@@ -62,7 +63,7 @@ export default function ServerViewPage(props: ServerViewProps) {
           <Paper className="server-view-navigation">
             <SidepanelButton currentHash={route} href={`/server/${server.id}#terminal`} >Web Terminal</SidepanelButton>
             <SidepanelButton currentHash={route} href={`/server/${server.id}#settings`} >Server Settings</SidepanelButton>
-            <SidepanelButton currentHash={route} href={`/server/${server.id}#worlds`}   >World Manager</SidepanelButton>
+            <SidepanelButton currentHash={route} href={`/server/${server.id}#world`}   >World Manager</SidepanelButton>
             <SidepanelButton currentHash={route} href={`/server/${server.id}#datapacks`}>Datapack Manager</SidepanelButton>
           </Paper>
           <Paper
@@ -476,16 +477,16 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
               const type = details ? details[0] : typeof settings[key as keyof ServerProperties];
               const name = details ? details[1] : key;
               const description = details ? details[2] : "";
-              const nCategory = details ? details[3] as string : "Uncategorized";
+              const nCategory = details && details[3] ? details[3] : "Uncategorized";
               const isNewCategory = category !== nCategory;
               category = nCategory;
 
               return (
                 <Fragment key={key}>
                   {isNewCategory && <h2 style={{
-                      color: "#d4b400",
-                      width: "100%",
-                    }}>{category}</h2>}
+                    color: "#d4b400",
+                    width: "100%",
+                  }}>{category}</h2>}
                   <Paper className="server-view-settings-block">
                     <h3 style={{ margin: 0, marginLeft: 4 }} title={description}>{name} {description && <IconZoomQuestion style={{ transform: "translateY(6px)" }} />}</h3>
                     {/* <p>{description}</p> */}
@@ -516,18 +517,18 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
                         containerStyle={{ width: "100%" }}
                         style={{ width: "100%" }}
                       />
-                    ) : Array.isArray(type) ? (
-                      /* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */
-                      <SelectInput
-                        options={type}
-                        value={formData[key] as string}
-                        onChange={(value) => {
-                          updateFormData({
-                            key: key,
-                            value,
-                          });
-                        }}
-                      />
+                    // ) : Array.isArray(type) ? ( // Not working for some reason, defaulting to text input
+                    //   /* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */
+                    //   <SelectInput
+                    //     options={type}
+                    //     value={formData[key] as string}
+                    //     onChange={(value) => {
+                    //       updateFormData({
+                    //         key: key,
+                    //         value,
+                    //       });
+                    //     }}
+                    //   />
                     ) : (
                       <Input
                         type="text"
@@ -560,6 +561,47 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
         <p>{modalMessage}</p>
         <Button onClick={saveModal.close}>Close</Button>
       </saveModal.Modal>
+    </div>
+  );
+}
+
+function ServerViewPanel_World(props: ServerViewPanelProps) {
+  const { server } = props;
+  const uploadWorldModal = useManagedModal();
+  const resetWorldModal = useManagedModal();
+
+  return (
+    <div>
+      <h2>{server.name}</h2>
+      <p>World manager</p>
+      <Button onClick={() => ServerApi.downloadWorld(server.id)}>Download world</Button>
+      <Button onClick={uploadWorldModal.open}>Upload world</Button>
+      <Button onClick={resetWorldModal.open}>Reset world</Button>
+
+      <uploadWorldModal.Modal closeOnOutsideClick>
+        <h2>Upload world</h2>
+        <p>
+          Upload a world to the server.
+          <br />
+          <span style={{ color: "#ff1e1e" }} >This will override the current world. Downloading a backup first is highly recommended.</span>
+        </p>
+        <Button onClick={() => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".zip";
+          input.onchange = (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+            ServerApi.uploadWorld(server.id, file).then(() => {
+              uploadWorldModal.close();
+            });
+          };
+          input.click();
+        }}>
+          Select world (zip)
+        </Button>
+        <Button onClick={uploadWorldModal.close}>Close</Button>
+      </uploadWorldModal.Modal>
     </div>
   );
 }

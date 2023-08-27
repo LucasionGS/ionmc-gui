@@ -217,6 +217,56 @@ namespace ServerController {
 
     res.json(await ServerManager.getStatus(server));
   });
+
+  /**
+   * Download a zip file containing the server's world.
+   */
+  router.get("/:id/world/download", async (req, res) => {
+    // const user = User.getAuthenticatedUser(req);
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    // if (server.userId !== user.id && !await user.hasPermission("SERVER.VIEW")) {
+    //   return res.status(403).json({ error: "You don't have permission to view this server's world" });
+    // }
+
+    const worldZip = await ServerManager.zipWorld(server).catch(() => null);
+    if (!worldZip) return res.status(500).json({ error: "Failed to zip world" });
+    
+    worldZip.on("progress", p => {
+      console.log(`${((p.entries.processed / p.entries.total) * 100).toFixed(2)}% | ${p.entries.processed}/${p.entries.total}`);
+    });
+    
+    res.writeHead(200, {
+      "Content-Disposition": `attachment; world.zip`,
+      "Content-Type": "octet/stream",
+    });
+    worldZip.pipe(res);
+    await worldZip.finalize();
+    worldZip.removeAllListeners();
+    worldZip.destroy();
+    console.log("Destroyed Stream");
+    
+    // res.send(worldZip);
+  });
+
+  /**
+   * Upload a zip file containing the server's world. This will overwrite the current world.
+   * @param id The ID of the server to upload the world to.
+   */
+  router.post("/:id/world/upload", User.$middleware(), AppSystem.uploader.single("file") as any, async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const file = req.file;
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.EDIT")) {
+      return res.status(403).json({ error: "You don't have permission to upload to this server's world" });
+    }
+    if (!file) return res.status(400).json({ error: "Missing file" });
+
+    ServerManager.uploadWorld(server.id, file).then(() => {
+      res.json({ message: "World uploaded" });
+    });
+  });
 }
 
 export default ServerController;

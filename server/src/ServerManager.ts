@@ -3,7 +3,11 @@ import AppSystem from "./AppSystem";
 import Path from "path";
 import { Server, User } from "./sequelize";
 import fsp from "fs/promises";
+import { createReadStream } from "fs";
 import { io } from "./express";
+import archiver from "archiver";
+import extractZip from "extract-zip";
+import { Express } from "express";
 
 namespace ServerManager {
   const serverFolder = Path.resolve(AppSystem.getUserDataDirectory(), "servers");
@@ -225,6 +229,74 @@ namespace ServerManager {
     };
 
     return result;
+  }
+
+  export async function getWorldPath(id: string | Server) {
+    const server = id instanceof Server ? id : await Server.findByPk(id);
+    if (!server) throw new Error("Server not found");
+    let mcServer = ServerManager.getRunningServerById(server.id);
+    if (!mcServer) {
+      mcServer = await ServerManager.getMCServer(server);
+    }
+
+    const worldName = mcServer.getProperty("level-name");
+    return Path.resolve(mcServer.directoryPath, worldName);
+  }
+
+  export async function zipWorld(id: string | Server) {
+    try {
+      const worldPath = await getWorldPath(id);
+      if (await fsp.stat(worldPath).then(() => false).catch(() => true)) throw new Error("World not found");
+
+      const archive = archiver("zip");
+
+      await archiveWorld(worldPath);
+
+      archive.on("error", (err) => {
+        console.error(err);
+      });
+
+      return archive;
+
+      async function archiveWorld(dirPath: string, originalPath: string = dirPath) {
+        const files = await fsp.readdir(dirPath);
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          try {
+            const absolutePath = Path.resolve(dirPath, file);
+            const fileStream = createReadStream(absolutePath);
+            const localPath = Path.relative(originalPath, absolutePath);
+            const stat = await fsp.stat(absolutePath).catch(() => null);
+            if (!stat) continue;
+            if (stat.isDirectory()) {
+              await archiveWorld(absolutePath, originalPath);
+              continue;
+            }
+            archive.append(fileStream, { name: localPath });
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      }
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
+
+  export async function uploadWorld(id: string, zipFile: Express.Multer.File) {
+    try {
+      const worldPath = await getWorldPath(id);
+      if (await fsp.stat(worldPath).then(() => true).catch(() => false)) {
+        await fsp.rm(worldPath, { recursive: true });
+      }
+      await fsp.mkdir(worldPath, { recursive: true });
+      const randomName = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      // await fsp.writeFile(`${worldPath}/${randomName}.zip`, zipFile.buffer);
+      await extractZip(zipFile.path, { dir: worldPath });
+      await fsp.rm(zipFile.path);
+    } catch (error) {
+      return Promise.reject(error);
+    }
   }
 }
 
