@@ -298,6 +298,17 @@ namespace ServerManager {
       return Promise.reject(error);
     }
   }
+
+  export async function resetWorld(id: string) {
+    try {
+      const worldPath = await getWorldPath(id);
+      if (await fsp.stat(worldPath).then(() => true).catch(() => false)) {
+        await fsp.rm(worldPath, { recursive: true });
+      }
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
 }
 
 export interface ServerStatus {

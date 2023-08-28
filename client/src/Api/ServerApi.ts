@@ -166,6 +166,13 @@ namespace ServerApi {
     formData.append("file", file);
     return BaseApi.POSTFormData(`/server/${id}/world/upload`, {}, formData).then((res) => res.json()) as Promise<{ message: string }>;
   }
+
+  /**
+   * Reset the server's world.
+   */
+  export async function resetWorld(id: string) {
+    return BaseApi.POST(`/server/${id}/world/reset`).then((res) => res.json()) as Promise<{ message: string }>;
+  }
 }
 
 export default ServerApi;

@@ -267,6 +267,22 @@ namespace ServerController {
       res.json({ message: "World uploaded" });
     });
   });
+
+  /**
+   * Reset the server's world and regenerate it.
+   * @param id The ID of the server to reset.
+   */
+  router.post("/:id/world/reset", User.$middleware(), async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.EDIT")) {
+      return res.status(403).json({ error: "You don't have permission to reset this server's world" });
+    }
+
+    await ServerManager.resetWorld(server.id);
+    return res.json({ message: "World reset" });
+  });
 }
 
 export default ServerController;

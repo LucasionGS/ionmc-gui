@@ -517,18 +517,18 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
                         containerStyle={{ width: "100%" }}
                         style={{ width: "100%" }}
                       />
-                    // ) : Array.isArray(type) ? ( // Not working for some reason, defaulting to text input
-                    //   /* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */
-                    //   <SelectInput
-                    //     options={type}
-                    //     value={formData[key] as string}
-                    //     onChange={(value) => {
-                    //       updateFormData({
-                    //         key: key,
-                    //         value,
-                    //       });
-                    //     }}
-                    //   />
+                      // ) : Array.isArray(type) ? ( // Not working for some reason, defaulting to text input
+                      //   /* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */
+                      //   <SelectInput
+                      //     options={type}
+                      //     value={formData[key] as string}
+                      //     onChange={(value) => {
+                      //       updateFormData({
+                      //         key: key,
+                      //         value,
+                      //       });
+                      //     }}
+                      //   />
                     ) : (
                       <Input
                         type="text"
@@ -570,38 +570,102 @@ function ServerViewPanel_World(props: ServerViewPanelProps) {
   const uploadWorldModal = useManagedModal();
   const resetWorldModal = useManagedModal();
 
+  const [uploadFinished, setUploadFinished] = React.useState<boolean | null>(null);
+  const [resetFinished, setResetFinished] = React.useState<boolean | null>(null);
+
   return (
     <div>
       <h2>{server.name}</h2>
-      <p>World manager</p>
-      <Button onClick={() => ServerApi.downloadWorld(server.id)}>Download world</Button>
-      <Button onClick={uploadWorldModal.open}>Upload world</Button>
-      <Button onClick={resetWorldModal.open}>Reset world</Button>
+      <h3>World manager</h3>
+      <p>Download the last saved version of the world.</p>
+      <Button variant="success" onClick={() => ServerApi.downloadWorld(server.id)}>Download world</Button>
+      <hr />
+      <p>Upload a zip file containing a world to use on the server. Files must be in the root of the zip file.</p>
+      <Button variant="danger" onClick={() => { setUploadFinished(null); uploadWorldModal.open() }}>Upload world</Button>
+      <hr />
+      <p>Reset the world to the generate a new one when started next.</p>
+      <Button variant="danger" onClick={() => { setResetFinished(null); resetWorldModal.open(); }}>Reset world</Button>
 
-      <uploadWorldModal.Modal closeOnOutsideClick>
+      <uploadWorldModal.Modal>
         <h2>Upload world</h2>
         <p>
           Upload a world to the server.
           <br />
-          <span style={{ color: "#ff1e1e" }} >This will override the current world. Downloading a backup first is highly recommended.</span>
+          <span style={{ color: "#ff1e1e" }} >This will override the current world. <a href="#world" onClick={e => {
+            e.preventDefault();
+            ServerApi.downloadWorld(server.id);
+          }}>Downloading a backup</a> first is highly recommended.
+            <br />
+            The moment you select the zip file, the upload will start and you will not be able to cancel it.
+          </span>
         </p>
-        <Button onClick={() => {
-          const input = document.createElement("input");
-          input.type = "file";
-          input.accept = ".zip";
-          input.onchange = (e) => {
-            const file = (e.target as HTMLInputElement).files?.[0];
-            if (!file) return;
-            ServerApi.uploadWorld(server.id, file).then(() => {
-              uploadWorldModal.close();
-            });
-          };
-          input.click();
-        }}>
-          Select world (zip)
-        </Button>
-        <Button onClick={uploadWorldModal.close}>Close</Button>
+        {
+          uploadFinished === null ? (
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <Button variant="danger" onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".zip";
+                input.onchange = (e) => {
+                  setUploadFinished(false);
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (!file) return;
+                  ServerApi.uploadWorld(server.id, file).then(() => {
+                    setUploadFinished(true);
+                  });
+                };
+                input.click();
+              }}>
+                Select world (zip)
+              </Button>
+              <Button onClick={uploadWorldModal.close}>Close</Button>
+            </div>
+          ) : uploadFinished === true ? (
+            <>
+              <p>Upload finished.</p>
+              <Button onClick={uploadWorldModal.close}>Close</Button>
+            </>
+          ) : (
+            <IoncoreLoader />
+          )
+        }
       </uploadWorldModal.Modal>
-    </div>
+      <resetWorldModal.Modal>
+        <h2>Reset world</h2>
+        <p>
+          Reset the world to the default world.
+          <br />
+          <span style={{ color: "#ff1e1e" }} >This will override the current world. <a href="#world" onClick={e => {
+            e.preventDefault();
+            ServerApi.downloadWorld(server.id);
+          }}>Downloading a backup</a> first is highly recommended.
+            <br />
+            The moment you click reset, the world will be reset and you will not be able to cancel it.
+          </span>
+        </p>
+        {
+          resetFinished === null ? (
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <Button variant="danger" onClick={() => {
+                setResetFinished(false);
+                ServerApi.resetWorld(server.id).then(() => {
+                  setResetFinished(true);
+                });
+              }}>
+                Reset world
+              </Button>
+              <Button onClick={resetWorldModal.close}>Close</Button>
+            </div>
+          ) : resetFinished === true ? (
+            <>
+              <p>Reset finished.</p>
+              <Button onClick={resetWorldModal.close}>Close</Button>
+            </>
+          ) : (
+            <IoncoreLoader />
+          )
+        }
+      </resetWorldModal.Modal>
+    </div >
   );
 }
