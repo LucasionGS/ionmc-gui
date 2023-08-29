@@ -7,6 +7,7 @@ import AppSystem from "../AppSystem";
 import ServerProperties from "ionmc/shared/ServerProperties";
 import { io } from "../express";
 import fsp from "fs/promises";
+import { ServerAttributesExtra } from "@shared/models";
 
 namespace ServerController {
   export const router = Router();
@@ -73,7 +74,34 @@ namespace ServerController {
       return res.status(403).json({ error: "You don't have permission to view this server" });
     }
 
-    return res.json(server);
+    const extra: ServerAttributesExtra = {
+      ...server.toJSON(),
+      address: await AppSystem.getExternalIp(),
+    };
+    return res.json(extra);
+  });
+
+  router.post("/:id/version", User.$middleware(), async (req, res) => {
+    const { version } = req.body as { version: string };
+    const user = User.getAuthenticatedUser(req);
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.EDIT")) {
+      return res.status(403).json({ error: "You don't have permission to update this server" });
+    }
+
+    await ServerManager.updateServerConfig(server, { version });
+    ServerManager.updateServer(server, version, {
+      onProgress: (_, receivedBytes, totalBytes) => {
+        console.log("Progress:", receivedBytes, totalBytes);
+      },
+      onDone: () => {
+        res.json({ message: "Server updated" });
+      }
+    }).catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
   });
 
   router.get("/:id/start", User.$middleware(), async (req, res) => {

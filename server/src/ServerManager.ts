@@ -71,6 +71,57 @@ namespace ServerManager {
     });
   }
 
+  export async function updateServer(_server: Server | string, version: string, events?: {
+    onProgress?: (buffer: Buffer, receivedBytes: number, totalBytes: number) => void,
+    onDone?: () => void
+  }) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    
+    return new Promise<Server>(async (resolve, reject) => {
+      const { onProgress, onDone } = events || {};
+      console.log("Getting version data...");
+      const versionData = await Api.getVersions().then(({ versions, latest }) => {
+        let lookFor = version;
+        if (version === "latest") lookFor = latest.release;
+        return versions.find(
+          (v) => v.id === lookFor
+        );
+      });
+      if (!versionData) return reject(new Error("Version not found"));
+      const release = await Api.getRelease(versionData);
+
+      const dist = Path.resolve(serverFolder, server.id);
+      const dl = await Api.downloadServer(release, dist, "_update.jar");
+      const currentJar = Path.resolve(dist, "server.jar");
+      const updatedJar = Path.resolve(dist, "_update.jar");
+
+      onProgress && dl.on("data", onProgress);
+      const onDoneEvent = () => {
+        onDone && onDone();
+        // Remove listeners
+        onProgress && dl.off("data", onProgress);
+
+        // Delete the old jar and rename the new one
+        fsp.rm(currentJar).then(() => {
+          fsp.rename(updatedJar, currentJar).then(async () => {
+            server.version = versionData.id;
+            await server.save();
+            resolve(server);
+          });
+        }).catch((error) => {
+          reject(error);
+        });
+      }
+      dl.once("finish", onDoneEvent);
+
+      // Timeout in case of the download taking too long - Assuming it's stuck or something went wrong
+      setTimeout(() => {
+        reject(new Error("Download timed out"));
+      }, 1000 * 60 * 5); // 5 minutes
+    });
+  }
+
   export const minServerPort = 25000;
   export const maxServerPort = 35000;
 
@@ -194,12 +245,18 @@ namespace ServerManager {
    * @param server Server entry
    * @param config New configuration
    */
-  export async function updateServerConfig(server: Server, config: Config.IonConfig["config"]) {
+  export async function updateServerConfig(server: Server, config: Partial<Config.IonConfig["config"]>) {
     const serverPath = Path.resolve(serverFolder, server.id);
     const serverConfigPath = Path.resolve(serverPath, ".ion", "serverConfig.json");
     await fsp.mkdir(Path.dirname(serverConfigPath), { recursive: true });
     const serverConfig = Config.load(serverPath);
-    serverConfig.serverConfig = config;
+    if (serverConfig.serverConfig) {
+      serverConfig.serverConfig = { ...serverConfig.serverConfig, ...config };
+    }
+    else {
+      // Opposite of Partial
+      serverConfig.serverConfig = config as Required<typeof config>;
+    }
     await fsp.writeFile(serverConfigPath, JSON.stringify(serverConfig.serverConfig, null, 2));
   }
 
@@ -370,7 +427,7 @@ namespace ServerManager {
         format: datapackJson?.pack.pack_format || 0
       }
     }));
-    
+
     return datapacks;
   }
 

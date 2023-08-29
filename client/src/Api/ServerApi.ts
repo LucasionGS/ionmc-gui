@@ -1,6 +1,6 @@
 import React from "react";
 import BaseApi from "./BaseApi";
-import { Datapack, ServerAttributes, ServerProperties, ServerStatus } from "@shared/models"
+import { Datapack, ServerAttributes, ServerAttributesExtra, ServerProperties, ServerStatus } from "@shared/models"
 import promiseUseHook from "../hooks/promiseUseHook";
 
 namespace ServerApi {
@@ -40,7 +40,7 @@ namespace ServerApi {
    * @param id The ID of the server to get.
    */
   export async function getServer(id: string) {
-    return BaseApi.GET(`/server/${id}`).then((res) => res.json()) as Promise<ServerAttributes>;
+    return BaseApi.GET(`/server/${id}`).then((res) => res.json()) as Promise<ServerAttributesExtra>;
   }
 
   /**
@@ -208,6 +208,10 @@ namespace ServerApi {
    */
   export async function deleteDatapack(id: string, name: string) {
     return BaseApi.DELETE(`/server/${id}/datapacks/${name}`).then((res) => res.json()) as Promise<{ message: string }>;
+  }
+
+  export async function updateServerVersion(id: string, version: string) {
+    return BaseApi.POST(`/server/${id}/version`, {}, { version }).then((res) => res.json()) as Promise<{ message: string }>;
   }
 }
 

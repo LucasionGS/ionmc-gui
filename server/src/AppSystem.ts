@@ -2,11 +2,27 @@ import os from "os";
 import fs from "fs";
 import Path from "path";
 import multer from "multer";
+import fetch from "cross-fetch";
 
 namespace AppSystem {
   export const friendlyAppName = "IonMC GUI";
   export const appName = "ionmc_gui";
   export const debug = process.env.NODE_ENV === "development";
+  let externalIp: Promise<string> | null = null;
+
+  /**
+   * Get the external IP of the server.
+   */
+  export async function getExternalIp() {
+    if (externalIp) return (await externalIp).trim();
+    externalIp = fetch("https://myip.wtf/text").then(r => r.text());
+    console.log("Fetching external IP");
+    return (await externalIp).trim();
+  }
+
+  setInterval(() => {
+    externalIp = null;
+  }, 1000 * 60 * 60 * 6); // Hours
 
   export const platform = os.platform();
   export const isWindows = platform === "win32";
@@ -83,8 +99,8 @@ namespace AppSystem {
   /**
    * Max file size for upload
    */
-  export const maxFileSize = (1024 * 1024) * 128; // MB
-  
+  export const maxFileSize = (1024 * 1024) * 512; // MB
+
   /**
    * Multer uploader for express
    */

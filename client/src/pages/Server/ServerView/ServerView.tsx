@@ -5,7 +5,7 @@ import MainLayout from "../../../layout/MainLayout/MainLayout";
 import IoncoreLoader from "../../../components/IoncoreLoader/IoncoreLoader";
 import { Button, ButtonProps, Checkbox, Input, Paper, Modal, useModal, useManagedModal, SelectInput, Select } from "@ioncore/theme";
 import { Link } from "@ioncore/theme/Link";
-import { ServerAttributes, ServerProperties, ServerStatus } from "@shared/models";
+import { ServerAttributesExtra, ServerProperties, ServerStatus } from "@shared/models";
 import { serverSettingsDetails } from "./serverSettingsDetails";
 import "./ServerView.scss";
 import { IconCircleLetterQ, IconQuestionMark, IconZoomCancel, IconZoomQuestion } from "@tabler/icons-react";
@@ -46,6 +46,11 @@ export default function ServerViewPage(props: ServerViewProps) {
     return window.location.hash.split("#").pop()! || "terminal";
   }, [window.location.hash]);
 
+  const updateModal = useManagedModal();
+  const [newVersion, setNewVersion] = React.useState<string | null>(null);
+  const [versions, setVersions] = React.useState<string[] | null>(null);
+  const [updating, setUpdating] = React.useState(false);
+
   const Panel = React.useMemo(() => {
     const panel = route;
     switch (panel) {
@@ -66,6 +71,40 @@ export default function ServerViewPage(props: ServerViewProps) {
             <SidepanelButton currentHash={route} href={`/server/${server.id}#settings`} >Server Settings</SidepanelButton>
             <SidepanelButton currentHash={route} href={`/server/${server.id}#world`}   >World Manager</SidepanelButton>
             <SidepanelButton currentHash={route} href={`/server/${server.id}#datapacks`}>Datapack Manager</SidepanelButton>
+            <hr />
+            <h3 style={{ textAlign: "center" }}>Server update</h3>
+            <Button {...buttonStyle} onClick={() => {
+              if (versions) {
+                setNewVersion(versions[0]);
+                updateModal.open();
+                return;
+              }
+              ServerApi.getVersions().then((_versions) => {
+                setVersions(["<Current>", "latest", ..._versions]);
+                updateModal.open();
+              });
+            }}>Update</Button>
+            <updateModal.Modal transition="none">
+              <h2>Update server</h2>
+              <p>
+                Update the server to a different version.
+              </p>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <SelectInput options={versions ?? []} value={newVersion ?? "<Current>"} onChange={(value) => {
+                  setNewVersion(value);
+                }} />
+                <Button disabled={!newVersion || newVersion === "<Current>" || updating} variant="danger" onClick={() => {
+                  setUpdating(true);
+                  ServerApi.updateServerVersion(server.id, newVersion!).then(() => {
+                    window.location.reload();
+                    // updateModal.close();
+                  });
+                }}>
+                  {updating ? `Updating server to ${newVersion}` : `Update server to ${newVersion}`}
+                </Button>
+                <Button onClick={updateModal.close}>Close</Button>
+              </div>
+            </updateModal.Modal>
           </Paper>
           <Paper
             style={{
@@ -83,7 +122,7 @@ export default function ServerViewPage(props: ServerViewProps) {
 }
 
 interface ServerViewPanelProps {
-  server: ServerAttributes
+  server: ServerAttributesExtra
 }
 
 function firstUppercase(str: string) {
@@ -177,6 +216,7 @@ function ServerViewPanel_Terminal(props: ServerViewPanelProps) {
         className="server-view-terminal-info"
       >
         <h2>{server.name}</h2>
+        <p><span style={{ color: "orange" }}>{server.address}:{server.port}</span></p>
         <p>Port: {server.port}</p>
         <p>Version: {server.version}</p>
         <p>RAM: {server.ram} MB</p>
@@ -298,7 +338,7 @@ function PlayerListItem(props: {
       }} onClick={() => pm.open()}>
         {player}
       </Button>
-      <pm.Modal closeOnOutsideClick>
+      <pm.Modal closeOnOutsideClick transition="none">
         <h2>{player}</h2>
         <p>Player information</p>
         <div style={{
