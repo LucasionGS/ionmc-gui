@@ -40,7 +40,7 @@ function ServerPage() {
             </thead>
             <tbody>
               {servers.map(server => (
-                <ServerItem server={server} refresh={refresh} />
+                <ServerItem key={server.id} server={server} refresh={refresh} />
               ))}
             </tbody>
           </table>
@@ -64,7 +64,7 @@ function ServerItem(props: { server: ServerAttributes, refresh: () => void }) {
       SocketApi.unsubscribeServer(server.id);
     };
   }, []);
-  return (<tr key={server.id}>
+  return (<tr>
     {status ?
       (
         <td><span style={{
