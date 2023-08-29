@@ -1,6 +1,6 @@
 import React from "react";
 import BaseApi from "./BaseApi";
-import { ServerAttributes, ServerProperties, ServerStatus } from "@shared/models"
+import { Datapack, ServerAttributes, ServerProperties, ServerStatus } from "@shared/models"
 import promiseUseHook from "../hooks/promiseUseHook";
 
 namespace ServerApi {
@@ -172,6 +172,42 @@ namespace ServerApi {
    */
   export async function resetWorld(id: string) {
     return BaseApi.POST(`/server/${id}/world/reset`).then((res) => res.json()) as Promise<{ message: string }>;
+  }
+
+  /**
+   * Delete a server.
+   */
+  export async function deleteServer(id: string) {
+    return BaseApi.DELETE(`/server/${id}`).then((res) => res.json()) as Promise<{ message: string }>;
+  }
+
+  /**
+   * Get a list of all datapacks that the current world has.
+   */
+  export async function getDatapacks(id: string) {
+    return BaseApi.GET(`/server/${id}/datapacks`).then((res) => res.json()) as Promise<Datapack[]>;
+  }
+
+  /**
+   * React hook for getting a list of all datapacks that the current world has.
+   * @returns A tuple containing the datapacks and a function to refresh the list.
+   */
+  export const useDatapacks = promiseUseHook(getDatapacks);
+
+  /**
+   * Upload a zip file containing a datapack.
+   */
+  export async function uploadDatapack(id: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return BaseApi.POSTFormData(`/server/${id}/datapacks`, {}, formData).then((res) => res.json()) as Promise<{ message: string }>;
+  }
+
+  /**
+   * Delete a datapack.
+   */
+  export async function deleteDatapack(id: string, name: string) {
+    return BaseApi.DELETE(`/server/${id}/datapacks/${name}`).then((res) => res.json()) as Promise<{ message: string }>;
   }
 }
 

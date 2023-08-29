@@ -52,6 +52,7 @@ export default function ServerViewPage(props: ServerViewProps) {
       case "terminal": return ServerViewPanel_Terminal;
       case "settings": return ServerViewPanel_Settings;
       case "world": return ServerViewPanel_World;
+      case "datapacks": return ServerViewPanel_Datapacks;
       default: return ServerViewPanel_Terminal;
     }
   }, [route]);
@@ -570,7 +571,7 @@ function ServerViewPanel_World(props: ServerViewPanelProps) {
   const uploadWorldModal = useManagedModal();
   const resetWorldModal = useManagedModal();
 
-  const [uploadFinished, setUploadFinished] = React.useState<boolean | null>(null);
+  const [uploadFinished, setUploadFinished] = React.useState<boolean | string | null>(null);
   const [resetFinished, setResetFinished] = React.useState<boolean | null>(null);
 
   return (
@@ -610,8 +611,8 @@ function ServerViewPanel_World(props: ServerViewPanelProps) {
                   setUploadFinished(false);
                   const file = (e.target as HTMLInputElement).files?.[0];
                   if (!file) return;
-                  ServerApi.uploadWorld(server.id, file).then(() => {
-                    setUploadFinished(true);
+                  ServerApi.uploadWorld(server.id, file).then(({ message }) => {
+                    setUploadFinished(message || true);
                   });
                 };
                 input.click();
@@ -623,6 +624,11 @@ function ServerViewPanel_World(props: ServerViewPanelProps) {
           ) : uploadFinished === true ? (
             <>
               <p>Upload finished.</p>
+              <Button onClick={uploadWorldModal.close}>Close</Button>
+            </>
+          ) : typeof uploadFinished === "string" ? (
+            <>
+              <p>{uploadFinished}</p>
               <Button onClick={uploadWorldModal.close}>Close</Button>
             </>
           ) : (
@@ -667,5 +673,93 @@ function ServerViewPanel_World(props: ServerViewPanelProps) {
         }
       </resetWorldModal.Modal>
     </div >
+  );
+}
+
+function ServerViewPanel_Datapacks(props: ServerViewPanelProps) {
+  const { server } = props;
+  const [datapacks, refresh] = ServerApi.useDatapacks(server.id);
+  const [uploadFinished, setUploadFinished] = React.useState<boolean | string | null>(null);
+  const uploadDatapackModal = useManagedModal();
+
+  return (
+    <div>
+      <h2>{server.name}</h2>
+      <h3>Datapack manager</h3>
+      <p>Upload a zip file containing a datapack to use on the server.</p>
+      <Button onClick={() => { setUploadFinished(null); uploadDatapackModal.open() }}>Upload datapack</Button>
+      <uploadDatapackModal.Modal>
+        <h2>Upload datapack</h2>
+        <p>
+          Upload a datapack to the server.
+        </p>
+        {
+          uploadFinished === null ? (
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <Button onClick={() => {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = ".zip";
+                input.onchange = (e) => {
+                  setUploadFinished(false);
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (!file) return;
+                  ServerApi.uploadDatapack(server.id, file).then(({ message }) => {
+                    setUploadFinished(message || true);
+                    refresh(server.id);
+                  });
+                };
+                input.click();
+              }}>
+                Select datapack (zip)
+              </Button>
+              <Button onClick={uploadDatapackModal.close}>Close</Button>
+            </div>
+          ) : uploadFinished === true ? (
+            <>
+              <p>Upload finished.</p>
+              <Button onClick={uploadDatapackModal.close}>Close</Button>
+            </>
+          ) : typeof uploadFinished === "string" ? (
+            <>
+              <p>{uploadFinished}</p>
+              <Button onClick={uploadDatapackModal.close}>Close</Button>
+            </>
+          ) : (
+            <IoncoreLoader />
+          )
+        }
+      </uploadDatapackModal.Modal>
+      <hr />
+      <p>Installed datapacks</p>
+      <table className="datapack-list">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Format</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {datapacks?.map((datapack, i) => {
+            return (
+              <tr key={datapack.name}>
+                <td>{datapack.name}</td>
+                <td>{datapack.description}</td>
+                <td>{datapack.format}</td>
+                <td>
+                  <Button size="small" variant="danger" onClick={() => {
+                    ServerApi.deleteDatapack(server.id, datapack.name).then(() => {
+                      refresh(server.id);
+                    });
+                  }}>Remove</Button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

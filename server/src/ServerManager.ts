@@ -140,15 +140,20 @@ namespace ServerManager {
   /**
    * Stop a server.
    */
-  export async function stop(mcserver: McServer) {
-    try {
-      mcserver.stop();
-    } catch (error) {
-      console.error(error);
-      // IonMC has a bug where it throws an error because it tries to write to the server console after it's already stopped
-      // This still stops the server, so we can just ignore the error
-    }
-    removeFromRunning(mcserver);
+  export async function stop(mcserver: McServer, force: boolean = false) {
+    return new Promise<void>((resolve, reject) => {
+      try {
+        mcserver.stop(force);
+      } catch (error) {
+        console.error(error);
+        // IonMC has a bug where it throws an error because it tries to write to the server console after it's already stopped
+        // This still stops the server, so we can just ignore the error
+      }
+      removeFromRunning(mcserver);
+      mcserver.once("stopped", () => {
+        resolve();
+      });
+    });
   }
 
   /**
@@ -239,13 +244,18 @@ namespace ServerManager {
       mcServer = await ServerManager.getMCServer(server);
     }
 
-    const worldName = mcServer.getProperty("level-name");
-    return Path.resolve(mcServer.directoryPath, worldName);
+    try {
+      const worldName = mcServer.getProperty("level-name");
+      return Path.resolve(mcServer.directoryPath, worldName);
+    } catch (error) {
+      return null;
+    }
   }
 
   export async function zipWorld(id: string | Server) {
     try {
       const worldPath = await getWorldPath(id);
+      if (!worldPath) throw new Error("World not found");
       if (await fsp.stat(worldPath).then(() => false).catch(() => true)) throw new Error("World not found");
 
       const archive = archiver("zip");
@@ -286,6 +296,7 @@ namespace ServerManager {
   export async function uploadWorld(id: string, zipFile: Express.Multer.File) {
     try {
       const worldPath = await getWorldPath(id);
+      if (!worldPath) throw new Error("World not found");
       if (await fsp.stat(worldPath).then(() => true).catch(() => false)) {
         await fsp.rm(worldPath, { recursive: true });
       }
@@ -302,6 +313,7 @@ namespace ServerManager {
   export async function resetWorld(id: string) {
     try {
       const worldPath = await getWorldPath(id);
+      if (!worldPath) throw new Error("World not found");
       if (await fsp.stat(worldPath).then(() => true).catch(() => false)) {
         await fsp.rm(worldPath, { recursive: true });
       }
@@ -309,12 +321,118 @@ namespace ServerManager {
       return Promise.reject(error);
     }
   }
+
+  export async function deleteServer(_server: string | Server) {
+    return new Promise<void>(async (resolve, reject) => {
+      try {
+        const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+        if (!server) return reject(new Error("Server not found"));
+        const mcServer = ServerManager.getRunningServerById(server.id);
+        if (mcServer) {
+          await ServerManager.stop(mcServer, true);
+        }
+        const path = Path.resolve(serverFolder, server.id);
+        while (
+          await fsp.stat(path).then(() => true).catch(() => false)
+          && await fsp.rm(path, { recursive: true }).then(() => false).catch(() => true)
+        ) {
+          // Keep trying until it works, in case the server is still running
+        }
+        await server.destroy();
+        resolve();
+      } catch (error) {
+        return reject(error);
+      }
+    });
+  }
+
+  export async function getDataPacks(_server: string | Server) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    let mcServer = ServerManager.getRunningServerById(server.id);
+    if (!mcServer) {
+      mcServer = await ServerManager.getMCServer(server);
+    }
+    const worldPath = await getWorldPath(server);
+    if (!worldPath) throw new Error("World not found");
+    const datapacksPath = Path.resolve(worldPath, "datapacks");
+
+    const datapackFolders = await fsp.readdir(datapacksPath).catch(() => []);
+    const datapacks: Datapack[] = await Promise.all(datapackFolders.map(async (folder) => {
+      const datapackJsonPath = Path.resolve(datapacksPath, folder, "pack.mcmeta");
+      const datapackJson: DatapackJson = await fsp.readFile(datapackJsonPath, "utf-8").then(JSON.parse);
+
+      const name = folder;
+      const description = typeof datapackJson.pack.description === "string" ? datapackJson.pack.description : datapackJson.pack.description.map((line) => line.text).join("");
+      return {
+        name,
+        description,
+        format: datapackJson?.pack.pack_format || 0
+      }
+    }));
+    
+    return datapacks;
+  }
+
+  export async function uploadDatapack(_server: string | Server, zipFile: Express.Multer.File) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    let mcServer = ServerManager.getRunningServerById(server.id);
+    if (!mcServer) {
+      mcServer = await ServerManager.getMCServer(server);
+    }
+    const worldPath = await getWorldPath(server);
+    if (!worldPath) throw new Error("World not found");
+    let datapacksPath = Path.resolve(worldPath, "datapacks", zipFile.originalname.replace(/.zip$/, ""));
+    let i = 1;
+    while (
+      await fsp.stat(datapacksPath).then(() => true).catch(() => false)
+    ) {
+      if (i > 1) {
+        datapacksPath = datapacksPath.replace(/-[0-9]+$/, "");
+      }
+      datapacksPath += "-" + i;
+      i++;
+    }
+    await fsp.mkdir(datapacksPath, { recursive: true });
+    await extractZip(zipFile.path, { dir: datapacksPath });
+    await fsp.rm(zipFile.path);
+  }
+
+  export async function deleteDatapack(_server: string | Server, name: string) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    let mcServer = ServerManager.getRunningServerById(server.id);
+    if (!mcServer) {
+      mcServer = await ServerManager.getMCServer(server);
+    }
+    const worldPath = await getWorldPath(server);
+    if (!worldPath) throw new Error("World not found");
+    const datapacksPath = Path.resolve(worldPath, "datapacks", name);
+    await fsp.rm(datapacksPath, { recursive: true });
+  }
 }
 
 export interface ServerStatus {
   status: "running" | "starting" | "offline";
   players: string[];
   admins: string[];
+}
+
+export interface DatapackJson {
+  pack: {
+    pack_format: number,
+    description: string | {
+      text: string,
+      [key: string]: any
+    }[]
+  }
+}
+
+export interface Datapack {
+  name: string;
+  description: string;
+  format: number;
 }
 
 export default ServerManager;

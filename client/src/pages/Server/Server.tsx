@@ -6,6 +6,9 @@ import MainLayout from "../../layout/MainLayout/MainLayout";
 import { Button, Paper } from "@ioncore/theme";
 import ServerApi from "../../Api/ServerApi";
 import IoncoreLoader from "../../components/IoncoreLoader/IoncoreLoader";
+import { ServerAttributes, ServerStatus } from "@shared/models";
+import React from "react";
+import SocketApi from "../../Api/SocketApi";
 // import { MySharedInterface } from "@shared/shared"; // Shared code between Client and Server
 
 function ServerPage() {
@@ -37,13 +40,7 @@ function ServerPage() {
             </thead>
             <tbody>
               {servers.map(server => (
-                <tr key={server.id}>
-                  <td>{server.name}</td>
-                  <td>{server.port}</td>
-                  <td>
-                    <Link href={`/server/${server.id}`}><Button fullWidth size="small">Manage</Button></Link>
-                  </td>
-                </tr>
+                <ServerItem server={server} refresh={refresh} />
               ))}
             </tbody>
           </table>
@@ -54,3 +51,80 @@ function ServerPage() {
 }
 
 export default ServerPage;
+
+function ServerItem(props: { server: ServerAttributes, refresh: () => void }) {
+  const { server, refresh } = props;
+  const [status, setStatus] = React.useState<ServerStatus | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
+  React.useEffect(() => {
+    ServerApi.getStatus(server.id).then(setStatus);
+    SocketApi.subscribeServer(server.id, (_, s) => s && setStatus(s));
+
+    return () => {
+      SocketApi.unsubscribeServer(server.id);
+    };
+  }, []);
+  return (<tr key={server.id}>
+    {status ?
+      (
+        <td><span style={{
+          display: "inline-block",
+          width: "0.6rem",
+          height: "0.6rem",
+          borderRadius: "50%",
+          backgroundColor: status.status === "running" ? "green" : status.status === "starting" ? "yellow" : "red",
+          transform: "translateY(0.1rem)",
+        }}></span> {server.name}</td>
+      ) : (
+        <td>{server.name}</td>
+      )
+    }
+    <td>{server.port}</td>
+    <td style={{
+      display: "flex",
+      flexDirection: "row",
+      gap: "0.5rem",
+    }}>
+      {
+        <>
+          {deleting ? null : (
+            <>
+              <Link href={`/server/${server.id}`}><Button size="small">Manage</Button></Link>
+              {
+                status?.status === "running" ? (
+                  <Button onClick={() => {
+                    setStatus({
+                      ...status,
+                      status: "stopping" as any,
+                    });
+                    ServerApi.stopServer(server.id);
+                  }} variant="danger" size="small">Stop</Button>
+                ) : status?.status === "offline" ? (
+                  <Button onClick={() => {
+                    ServerApi.startServer(server.id);
+                  }} variant="success" size="small">Start</Button>
+                ) : (
+                  <Button disabled variant="success" size="small">{status?.status}</Button>
+                )
+              }
+            </>
+          )}
+          <Button
+            disabled={deleting}
+            onClick={() => {
+              setDeleting(true);
+              ServerApi.deleteServer(server.id).then(() => {
+                refresh();
+              });
+            }}
+            variant="danger"
+            size="small"
+            fullWidth={deleting}
+          >
+            {deleting ? "Stopping & deleting..." : "Delete"}
+          </Button>
+        </>
+      }
+    </td>
+  </tr>);
+}

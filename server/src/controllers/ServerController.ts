@@ -6,6 +6,7 @@ import { ConsoleInfo } from "ionmc/dist/lib/Server";
 import AppSystem from "../AppSystem";
 import ServerProperties from "ionmc/shared/ServerProperties";
 import { io } from "../express";
+import fsp from "fs/promises";
 
 namespace ServerController {
   export const router = Router();
@@ -50,6 +51,18 @@ namespace ServerController {
 
     if (!server) return res.status(500).json({ error: "Failed to create server" });
     return res.json(server);
+  });
+
+  router.delete("/:id", User.$middleware(), async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.DELETE")) {
+      return res.status(403).json({ error: "You don't have permission to delete this server" });
+    }
+
+    await ServerManager.deleteServer(server);
+    return res.json({ message: "Server deleted" });
   });
 
   router.get("/:id", User.$middleware(), async (req, res) => {
@@ -110,10 +123,12 @@ namespace ServerController {
       console.log("Server ready");
       sendStatus();
     });
-    
+
     mcserver.on("stopped", async () => {
       console.log("Stopped listening to data on server", server.id);
-      mcserver.removeAllListeners();
+      setTimeout(() => {
+        mcserver.removeAllListeners();
+      }, 5000); // Wait 5 seconds before removing listeners to prevent any data from being missed
       ServerManager.removeFromRunning(mcserver);
       sendStatus();
     });
@@ -231,11 +246,11 @@ namespace ServerController {
 
     const worldZip = await ServerManager.zipWorld(server).catch(() => null);
     if (!worldZip) return res.status(500).json({ error: "Failed to zip world" });
-    
+
     worldZip.on("progress", p => {
       console.log(`${((p.entries.processed / p.entries.total) * 100).toFixed(2)}% | ${p.entries.processed}/${p.entries.total}`);
     });
-    
+
     res.writeHead(200, {
       "Content-Disposition": `attachment; world.zip`,
       "Content-Type": "octet/stream",
@@ -245,7 +260,7 @@ namespace ServerController {
     worldZip.removeAllListeners();
     worldZip.destroy();
     console.log("Destroyed Stream");
-    
+
     // res.send(worldZip);
   });
 
@@ -265,6 +280,9 @@ namespace ServerController {
 
     ServerManager.uploadWorld(server.id, file).then(() => {
       res.json({ message: "World uploaded" });
+    }).catch((error: any) => {
+      fsp.rm(file.path);
+      res.status(500).json({ error: error.message });
     });
   });
 
@@ -280,8 +298,79 @@ namespace ServerController {
       return res.status(403).json({ error: "You don't have permission to reset this server's world" });
     }
 
-    await ServerManager.resetWorld(server.id);
-    return res.json({ message: "World reset" });
+    ServerManager.resetWorld(server.id).then(() => {
+      return res.json({ message: "World reset" });
+    }).catch((error: any) => {
+      return res.status(500).json({ error: error.message });
+    });
+  });
+
+  /**
+   * Get the server's current world datapacks.
+   */
+  router.get("/:id/datapacks", User.$middleware(), async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.VIEW")) {
+      return res.status(403).json({ error: "You don't have permission to view this server's datapacks" });
+    }
+
+    const datapacks = await ServerManager.getDataPacks(server).catch(() => []);
+    return res.json(datapacks);
+  });
+  
+  /**
+   * Upload a zip file containing a datapack.
+   */
+  router.post("/:id/datapacks", User.$middleware(), AppSystem.uploader.single("file") as any, async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const file = req.file;
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.EDIT")) {
+      return res.status(403).json({ error: "You don't have permission to upload to this server's datapacks" });
+    }
+    if (!file) return res.status(400).json({ error: "Missing file" });
+
+    ServerManager.uploadDatapack(server.id, file).then(() => {
+      res.json({ message: "Datapack uploaded" });
+    }).catch((error: any) => {
+      fsp.rm(file.path);
+      res.status(500).json({ error: error.message });
+    });
+  });
+
+  /**
+   * Delete a datapack.
+   */
+  router.delete("/:id/datapacks/:datapack", User.$middleware(), async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const datapack = req.params.datapack;
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (!datapack) return res.status(400).json({ error: "Missing datapack name" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.EDIT")) {
+      return res.status(403).json({ error: "You don't have permission to delete this server's datapacks" });
+    }
+
+    ServerManager.deleteDatapack(server.id, datapack).then(() => {
+      res.json({ message: "Datapack deleted" });
+    }).catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
+  });
+
+  /**
+   * Get a datapacks icon.
+   */
+  router.get("/:id/datapacks/:datapack/pack.png", async (req, res) => {
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+
+    const worldPath = await ServerManager.getWorldPath(server);
+    const datapackPath = `${worldPath}/datapacks/${req.params.datapack}`;
+    return res.sendFile(datapackPath + "/pack.png");
   });
 }
 
