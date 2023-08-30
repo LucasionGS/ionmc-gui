@@ -15,7 +15,7 @@ namespace SocketApi {
     subscriptions[key] = callback;
   }
 
-  export function unsubscribeServer(id: String) {
+  export function unsubscribeServer(id: string) {
     const key = `server/${id}`;
     const existing = subscriptions[key];
     socket.emit("unsubscribe", id);
