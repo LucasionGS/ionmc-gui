@@ -3,7 +3,7 @@ import logo from "../../assets/logo.svg";
 import BaseApi from "../../Api/BaseApi";
 import "./Server.scss";
 import MainLayout from "../../layout/MainLayout/MainLayout";
-import { Button, Paper } from "@ioncore/theme";
+import { Button, Checkbox, Paper } from "@ioncore/theme";
 import ServerApi from "../../Api/ServerApi";
 import IoncoreLoader from "../../components/IoncoreLoader/IoncoreLoader";
 import { ServerAttributes, ServerStatus } from "@shared/models";
@@ -12,13 +12,24 @@ import SocketApi from "../../Api/SocketApi";
 // import { MySharedInterface } from "@shared/shared"; // Shared code between Client and Server
 
 function ServerPage() {
-  // const user = BaseApi.getUser();
-  const [servers, refresh] = ServerApi.useServers();
+  const user = BaseApi.getUser();
+  const [showAllServers, setShowAllServers] = React.useState(false);
+  const [servers, refresh] = ServerApi.useServers({ all: showAllServers });
+
+  React.useEffect(() => {
+    refresh({ all: showAllServers });
+  }, [showAllServers]);
+
   return (
     <MainLayout>
       <Paper>
         <h2>My servers</h2>
         <p>Here is your list of servers. You can create a new server or manage your existing.</p>
+        {
+          user?.isAdmin ? (
+            <Checkbox alwaysShowTick label="(Admin) Show all servers" checked={showAllServers} onChange={c => setShowAllServers(c)} />
+          ) : null
+        }
         {!servers ? (
           <IoncoreLoader />
         ) : (
@@ -40,7 +51,7 @@ function ServerPage() {
             </thead>
             <tbody>
               {servers.map(server => (
-                <ServerItem key={server.id} server={server} refresh={refresh} />
+                <ServerItem key={server.id} server={server} refresh={() => refresh()} />
               ))}
             </tbody>
           </table>
@@ -84,6 +95,7 @@ function ServerItem(props: { server: ServerAttributes, refresh: () => void }) {
       display: "flex",
       flexDirection: "row",
       gap: "0.5rem",
+      flexWrap: "wrap",
     }}>
       {
         <>

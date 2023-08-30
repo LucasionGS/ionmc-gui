@@ -7,7 +7,10 @@ namespace ServerApi {
   /**
    * Get a list of all servers that the user has access to.
    */
-  export async function getServers() {
+  export async function getServers(options?: { all?: boolean }) {
+    if (options?.all) {
+      return BaseApi.GET("/server?all").then((res) => res.json()) as Promise<ServerAttributes[]>;
+    }
     return BaseApi.GET("/server").then((res) => res.json()) as Promise<ServerAttributes[]>;
   }
 
@@ -15,15 +18,7 @@ namespace ServerApi {
    * React hook for getting a list of all servers that the user has access to.
    * @returns A tuple containing the servers and a function to refresh the list.
    */
-  export function useServers() {
-    const [servers, setServers] = React.useState<ServerAttributes[] | null>(null);
-    const [refresh, _setRefresh] = React.useState(0);
-    const setRefresh = () => _setRefresh(refresh + 1 % 2);
-    React.useEffect(() => {
-      getServers().then(setServers);
-    }, [refresh]);
-    return [servers, setRefresh] as const;
-  }
+  export const useServers = promiseUseHook(getServers);
 
   /**
    * Create a new server.

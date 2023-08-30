@@ -23,7 +23,7 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [registerMode, setRegisterMode] = useState(false);
+  const [registerMode, setRegisterMode] = useState(window.location.hash === "#register");
   const router = useRouter();
 
   const loginHandle = useCallback(async () => {
@@ -58,7 +58,7 @@ function LoginPage() {
       <div className="login-screen">
         <form onSubmit={(e) => { e.preventDefault(); loginHandle(); }}>
           <h3>
-            Login
+            {registerMode ? "Register a user" : "Login"}
           </h3>
           <Input style={inputStyle} type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} label="Username" />
           <br />
@@ -79,8 +79,14 @@ function LoginPage() {
             {registerMode ? "Register" : "Login"}
           </button> */}
           <p style={{ color: "red" }}>{error}</p>
-          <a className="App-link" onClick={() => setRegisterMode(!registerMode)}>
-            {registerMode ? "Already have a user? Login" : "Don't have a user? Register"}
+          <a href={registerMode ? "#" : "#register"}>
+            <Button onClick={e => {
+              e.preventDefault();
+              setRegisterMode(!registerMode);
+              window.location.hash = registerMode ? "" : "register";
+            }}>
+              {registerMode ? "Already have a user? Login" : "Don't have a user? Register"}
+            </Button>
           </a>
         </form>
       </div>
