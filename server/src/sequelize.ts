@@ -87,6 +87,12 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     }
   }
 
+  /**
+   * Registers a new user with the given username and password.
+   * @param data An object containing the username and password of the user to be registered.
+   * @returns A Promise that resolves to the newly created User object.
+   * @throws An error if the username is already taken.
+   */
   public static async registerUser(data: {
     username: string;
     password: string;
@@ -199,6 +205,10 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     };
   }
 
+  /**
+   * Get the user from the database from the JWT token.
+   * @param token JWT token to get the user from
+   */
   public static async fromToken(token: string) {
     const clientUser = jwt.verify(token, process.env.JWT_SECRET!) as ClientUser;
     const user = await User.findByPk(clientUser.id);
@@ -226,6 +236,11 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     return ((req as any).clientUser as ClientUser) || null;
   }
 
+  /**
+   * Authenticates a user. Returns null if the user is not found or the password is incorrect.
+   * @param data Object containing the username and password
+   * @returns 
+   */
   public static async authenticateUser(data: {
     username: string;
     password: string;
@@ -253,6 +268,10 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     };
   }
 
+  /**
+   * Returns a JSON representation of the Sequelize model instance with associated data included.
+   * @returns A Promise that resolves to an object containing the model instance's ID, username, and roles.
+   */
   public async toFullJSON() {
     return {
       id: this.id,
@@ -260,6 +279,11 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
       roles: (await this.getRoles()).map(role => role.toJSON()),
     };
   }
+  
+  /**
+   * Returns a JSON representation of the user object that can be sent to the client.
+   * @returns A promise that resolves to a `ClientUser` object.
+   */
   public async toClientJSON(): Promise<ClientUser> {
     const roles = (await this.getRoles()).map(role => role.name);
     return {
@@ -271,6 +295,10 @@ export class User extends Model<UserAttributes, UserAttributesCreation> implemen
     };
   }
 
+  /**
+   * Generates a JSON Web Token (JWT) for this user.
+   * @returns A Promise that resolves with the generated JWT.
+   */
   public async jwt() {
     return jwt.sign(await this.toClientJSON(), process.env.JWT_SECRET!, {
       expiresIn: "21d",
