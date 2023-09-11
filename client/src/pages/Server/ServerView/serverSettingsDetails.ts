@@ -4,7 +4,7 @@ import { ServerProperties } from "@shared/models";
 export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "string" | "boolean" | string[], string, string, string?]> = {
   "motd": [
     "string",
-    "MOTD",
+    "Message of the Day",
     "The message of the day displayed in the server list.",
     "Essentials"
   ],
@@ -17,12 +17,12 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "level-name": [
     "string",
     "Level Name",
-    "The name of the world.",
+    "The name of the world to be saved on disk. Recommended to be left at world or prefixed with a folder path like worlds/my-world for multiworld servers.",
     "Essentials"
   ],
   "spawn-protection": [
     "number",
-    "Spawn Protection",
+    "Spawn Protection Distance",
     "Distance in blocks from the world spawn point within which players cannot damage blocks or interact with the world.",
     "World"
   ],
@@ -35,13 +35,13 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "online-mode": [
     "boolean",
     "Online Mode",
-    "Whether to enable online mode.",
+    "Whether to enable online mode. If set to true, all connected players must have a logged in Minecraft account.",
     "Security"
   ],
   "prevent-proxy-connections": [
     "boolean",
     "Prevent Proxy Connections",
-    "Whether to prevent proxy connections.",
+    "Whether to prevent proxy connections. If set to true, players connecting through a proxy will be kicked.",
     "Security"
   ],
   "rate-limit": [
@@ -52,8 +52,8 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   ],
   "enable-rcon": [
     "boolean",
-    "Enable RCON",
-    "Whether to enable the RCON protocol.",
+    "RCON",
+    "Whether to enable the RCON protocol for remote console access to the server.",
     "RCON"
   ],
   "rcon.port": [
@@ -77,25 +77,25 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "enable-jmx-monitoring": [
     "boolean",
     "Enable JMX Monitoring",
-    "Whether to enable JMX monitoring.",
+    "Whether to enable JMX monitoring. This allows access to MBeans by remote clients.",
     "Advanced"
   ],
   "sync-chunk-writes": [
     "boolean",
     "Sync Chunk Writes",
-    "Whether to sync chunk writes to disk.",
+    "Whether to sync chunk writes to disk. Disabling this may improve performance but increases the risk of data corruption in the event of a power loss or crash.",
     "Advanced"
   ],
   "enable-command-block": [
     "boolean",
     "Enable Command Block",
-    "Whether to enable command blocks.",
+    "Whether to enable command blocks. If set to false, command blocks will not work in the world.",
     "Advanced"
   ],
   "function-permission-level": [
     "number",
     "Function Permission Level",
-    "The permission level required to use functions.",
+    "The permission level required to use functions. 2 - Operators only, 3 - Anyone.",
     "Advanced"
   ],
   "max-build-height": [
@@ -107,19 +107,19 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "spawn-npcs": [
     "boolean",
     "Spawn NPCs",
-    "Whether to allow NPCs to spawn.",
+    "Whether to allow NPCs to spawn. This includes villagers and other entities that use NPC AI.",
     "World"
   ],
   "spawn-animals": [
     "boolean",
     "Spawn Animals",
-    "Whether to allow animals to spawn.",
+    "Whether to allow animals to spawn. This includes cows, pigs, sheep, etc.",
     "World"
   ],
   "spawn-monsters": [
     "boolean",
     "Spawn Monsters",
-    "Whether to allow monsters to spawn.",
+    "Whether to allow hostile monsters to spawn. This includes zombies, skeletons, etc.",
     "World"
   ],
   "view-distance": [
@@ -143,7 +143,7 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "allow-nether": [
     "boolean",
     "Allow Nether",
-    "Whether to allow players to enter the Nether.",
+    "Whether to allow players to enter the Nether. If set to false, players will be unable to enter the Nether portal.",
     "World"
   ],
   "level-type": [
@@ -155,37 +155,37 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "generator-settings": [
     "string",
     "Generator Settings",
-    "The generator settings for the world.",
+    "The generator settings for the world. Used for customized worlds.",
     "World"
   ],
   "level-seed": [
     "string",
     "Level Seed",
-    "The seed used to generate the world.",
+    "The seed used to generate the world. Leave blank to generate a random seed. It only affects worlds created after setting the value.",
     "World"
   ],
   "hardcore": [
     "boolean",
     "Hardcore",
-    "Whether to enable hardcore mode.",
+    "Whether to enable hardcore mode. If set to true, players will be permanently banned from the server if they die.",
     "Difficulty"
   ],
   "pvp": [
     "boolean",
     "PvP",
-    "Whether to enable PvP.",
+    "Whether to enable PvP. If set to false, players will be unable to attack other players.",
     "Essentials"
   ],
   "allow-flight": [
     "boolean",
     "Allow Flight",
-    "Whether to allow players to fly.",
+    "Whether to allow players to fly. If set to true, players will be able to fly in survival mode if they have a mod that provides flight installed.",
     "Security"
   ],
   "gamemode": [
     "string",
     "Default Gamemode",
-    "The default game mode for new players.",
+    "The default game mode for new players. Gamemodes: survival, creative, adventure, spectator.",
     "Difficulty"
   ],
   "force-gamemode": [
@@ -195,11 +195,14 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
     "Difficulty"
   ],
   "difficulty": [
-    ["easy",
+    [
+      "peaceful",
+      "easy",
       "normal",
-      "hard"],
+      "hard"
+    ],
     "Difficulty",
-    "The difficulty level of the game.",
+    "The difficulty level of the game. Difficulties: peaceful, easy, normal, hard.",
     "Essentials"
   ],
   "player-idle-timeout": [
@@ -211,7 +214,7 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "white-list": [
     "boolean",
     "White List",
-    "Whether to enable the server whitelist.",
+    "Whether to enable the server whitelist. If set to true, players must be added to the whitelist before they can join the server.",
     "Security"
   ],
   "enforce-whitelist": [
@@ -235,7 +238,7 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "enable-query": [
     "boolean",
     "Enable Query",
-    "Whether to enable the query protocol.",
+    "Whether to enable the query protocol. This allows clients to retrieve information about the server.",
     "Query"
   ],
   "query.port": [
@@ -247,13 +250,13 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "server-ip": [
     "string",
     "Server IP",
-    "The IP address that the server will bind to.",
-    "Essentials"
+    "The IP address that the server will bind to. This should be left blank",
+    "Network"
   ],
   "server-port": [
     "number",
     "Server Port",
-    "The port that the server will listen on for incoming connections.",
+    "The port that the server will listen on for incoming connections. This can only be between 25000-35000 and must be different from the other servers on this host.",
     "Network"
   ],
   "resource-pack": [
@@ -271,7 +274,7 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "snooper-enabled": [
     "boolean",
     "Snooper Enabled",
-    "Whether to enable the snooper.",
+    "Whether to enable the snooper. If set to true, the server will send data to Mojang.",
     "Advanced"
   ],
   "enable-status": [
@@ -283,7 +286,7 @@ export const serverSettingsDetails: Record<keyof ServerProperties, ["number" | "
   "generate-structures": [
     "boolean",
     "Generate Structures",
-    "Whether to generate structures.",
+    "Whether to generate structures. If set to false, villages, strongholds, etc. will not be generated.",
     "World"
   ],
   "network-compression-threshold": [
