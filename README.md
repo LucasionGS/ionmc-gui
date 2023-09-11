@@ -1,7 +1,9 @@
-# Ioncore Project Template
+# IonMC GUI
 ![Build Status](https://abstruse.ionnet.io/badge/b242914b?branch=master)
 
-This is a template for an Ioncore project. It contains a TypeScript full-stack application, with a server in [Nodejs](https://nodejs.org/en) and a client in [React](https://react.dev/).
+This is the GUI for the IonMC project. It is built with [React](https://reactjs.org/) and [Nodejs](https://nodejs.org/en/).
+
+`This project acts as my final exam project for my Data Technician education at TEC Ballerup, and will be developed further after the exam.`
 
 ## Getting Started
 
