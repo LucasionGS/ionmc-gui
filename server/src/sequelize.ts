@@ -375,6 +375,11 @@ export interface RoleAttributesObject {
 
 export const uniqueList = (list: string[]) => [...new Set(list)].filter(Boolean);
 
+/**
+ * Represents a role in the database. Each role has a name, a list of permissions, and a parent role.  
+ * A role can inherit permissions from its parent role.  
+ * Users can have multiple roles and determine their permissions based on the roles they have.
+ */
 export class Role extends Model<RoleAttributes, RoleAttributesCreation> implements RoleAttributes {
   public id!: string;
   public name!: string;
