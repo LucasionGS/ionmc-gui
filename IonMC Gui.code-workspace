@@ -25,6 +25,12 @@
 				"driver": "SQLite",
 				"database": "C:\\Users\\lucas\\AppData\\Roaming\\ionmc_gui\\main.db",
 				"name": "IonMC Gui DB"
+			},
+			{
+				"previewLimit": 50,
+				"driver": "SQLite",
+				"name": "Linux",
+				"database": "/home/ion/.icconfig/userdata/ionmc_gui/main.db"
 			}
 		]
 	},
