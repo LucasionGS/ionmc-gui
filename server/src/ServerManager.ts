@@ -415,8 +415,10 @@ namespace ServerManager {
     const datapacksPath = Path.resolve(worldPath, "datapacks");
 
     const datapackFolders = await fsp.readdir(datapacksPath).catch(() => []);
-    const datapacks: Datapack[] = await Promise.all(datapackFolders.map(async (folder) => {
+    const datapacks: Datapack[] = (await Promise.all(datapackFolders.map(async (folder) => {
       const datapackJsonPath = Path.resolve(datapacksPath, folder, "pack.mcmeta");
+      const exists = await fsp.stat(datapackJsonPath).then(() => true).catch(() => false);
+      if (!exists) return null;
       const datapackJson: DatapackJson = await fsp.readFile(datapackJsonPath, "utf-8").then(JSON.parse);
 
       const name = folder;
@@ -426,7 +428,7 @@ namespace ServerManager {
         description,
         format: datapackJson?.pack.pack_format || 0
       }
-    }));
+    }))).filter(Boolean) as Datapack[]; // Remove nulls
 
     return datapacks;
   }

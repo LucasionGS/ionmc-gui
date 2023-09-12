@@ -13,7 +13,7 @@ io.on("connection", (socket) => {
       return;
     }
     socket.join(`server/${id}`);
-    console.log("Subscribed to server", id);
+    // console.log("Subscribed to server", id);
 
     socket.removeAllListeners(`server/${id}/command`);
     socket.on(`server/${id}/command`, async (command: string, requestStatusUpdate: boolean) => {
@@ -25,7 +25,6 @@ io.on("connection", (socket) => {
       const mcserver = ServerManager.getRunningServerById(server.id);
       if (!mcserver) return;
       try {
-        // mcserver.executeCustomCommand(command);
         mcserver.process.write(command + "\n");
       } catch (error) {
         console.error(error);
@@ -39,7 +38,7 @@ io.on("connection", (socket) => {
     });
 
     socket.once("disconnect", () => {
-      console.log("Unsubscribed to server", id);
+      // console.log("Unsubscribed to server", id);
       socket.leave(`server/${id}`);
       socket.removeAllListeners();
     });
@@ -48,6 +47,6 @@ io.on("connection", (socket) => {
   socket.on("unsubscribe", (id: string) => {
     socket.leave(`server/${id}`);
     socket.removeAllListeners(`server/${id}/command`);
-    console.log("Unsubscribed to server", id);
+    // console.log("Unsubscribed to server", id);
   });
 });
