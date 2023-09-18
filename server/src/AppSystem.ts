@@ -15,7 +15,8 @@ namespace AppSystem {
    */
   export async function getExternalIp() {
     if (externalIp) return (await externalIp).trim();
-    externalIp = fetch("https://myip.wtf/text").then(r => r.text());
+    // externalIp = fetch("https://myip.wtf/text").then(r => r.text());
+    externalIp = fetch("https://api.ipify.org").then(r => r.text());
     console.log("Fetching external IP");
     return (await externalIp).trim();
   }
