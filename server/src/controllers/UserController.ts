@@ -128,6 +128,11 @@ namespace UserController {
       giveAdmin = !hasFirstUser;
     }
 
+    // Only allow first user
+    if (hasFirstUser) {
+      return res.status(403).json({ message: "You cannot register a new user." });
+    }
+
     User.registerUser({ username, password }).then(async (user) => {
       if (giveAdmin) {
         await user.addRole("admin");

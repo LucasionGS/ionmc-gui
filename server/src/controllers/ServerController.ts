@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { Server, User } from "../sequelize";
 import ServerManager from "../ServerManager";
-import { Server as McServer } from "ionmc";
 import { ConsoleInfo } from "ionmc/dist/lib/Server";
 import AppSystem from "../AppSystem";
 import ServerProperties from "ionmc/shared/ServerProperties";

@@ -1,4 +1,5 @@
-import { IonMC, Api, Config, Server as McServer } from "ionmc";
+import { IonMC, Config } from "ionmc";
+import { MinecraftApi as Api, Server as McServer } from "ionmc-core";
 import AppSystem from "./AppSystem";
 import Path from "path";
 import { Server, User } from "./sequelize";
@@ -25,14 +26,14 @@ namespace ServerManager {
     ram: number,
     userId: string
   }, events?: {
-    onProgress?: (buffer: Buffer, receivedBytes: number, totalBytes: number) => void,
+    onProgress?: (buffer: any, receivedBytes: number, totalBytes: number) => void,
     onDone?: () => void
   }) {
     return new Promise<Server>(async (resolve, reject) => {
       const { name, version, ram, userId } = data;
       const { onProgress, onDone } = events || {};
       console.log("Getting version data...");
-      const versionData = await Api.getVersions().then(({ versions, latest }) => {
+      const versionData = await Api.getServerVersions().then(({ versions, latest }) => {
         let lookFor = version;
         if (version === "latest") lookFor = latest.release;
         return versions.find(
@@ -40,7 +41,6 @@ namespace ServerManager {
         );
       });
       if (!versionData) return reject(new Error("Version not found"));
-      const release = await Api.getRelease(versionData);
 
       console.log("Creating server...");
       const server = await Server.create({
@@ -53,16 +53,30 @@ namespace ServerManager {
       console.log("Downloading server...");
       console.log("Server folder:", serverFolder);
       const dist = Path.resolve(serverFolder, server.id);
-      const dl = await Api.downloadServer(release, dist);
-
-      onProgress && dl.on("data", onProgress);
+      // const dl = await Api.downloadServer(release, dist);
+      const serverDl = new McServer(dist);
+      const strm = new McServer.ProgressStream();
+      const _oP = onProgress ? ((data: string) => {
+        const d = data.match(/Progress: (\d+)\/(\d+)/);
+        if (d) {
+          const receivedBytes = +d[1];
+          const totalBytes = +d[2];
+          onProgress(null, receivedBytes, totalBytes);
+        }
+      }) : undefined;
+      
+      _oP && strm.on("data", _oP);
       const onDoneEvent = () => {
         onDone && onDone();
         // Remove listeners
-        onProgress && dl.off("data", onProgress);
+        _oP && strm.off("data", _oP);
         resolve(server);
       }
-      dl.once("finish", onDoneEvent);
+      await serverDl.installServer({
+        progressStream: strm
+      });
+
+      onDoneEvent();
 
       // Timeout in case of the download taking too long - Assuming it's stuck or something went wrong
       setTimeout(() => {
@@ -72,7 +86,7 @@ namespace ServerManager {
   }
 
   export async function updateServer(_server: Server | string, version: string, events?: {
-    onProgress?: (buffer: Buffer, receivedBytes: number, totalBytes: number) => void,
+    onProgress?: (buffer: any, receivedBytes: number, totalBytes: number) => void,
     onDone?: () => void
   }) {
     const server = _server instanceof Server ? _server : await Server.findByPk(_server);
@@ -81,7 +95,7 @@ namespace ServerManager {
     return new Promise<Server>(async (resolve, reject) => {
       const { onProgress, onDone } = events || {};
       console.log("Getting version data...");
-      const versionData = await Api.getVersions().then(({ versions, latest }) => {
+      const versionData = await Api.getServerVersions().then(({ versions, latest }) => {
         let lookFor = version;
         if (version === "latest") lookFor = latest.release;
         return versions.find(
@@ -89,31 +103,33 @@ namespace ServerManager {
         );
       });
       if (!versionData) return reject(new Error("Version not found"));
-      const release = await Api.getRelease(versionData);
 
       const dist = Path.resolve(serverFolder, server.id);
-      const dl = await Api.downloadServer(release, dist, "_update.jar");
-      const currentJar = Path.resolve(dist, "server.jar");
-      const updatedJar = Path.resolve(dist, "_update.jar");
+      const serverDl = new McServer(dist);
+      const strm = new McServer.ProgressStream();
 
-      onProgress && dl.on("data", onProgress);
+      const _oP = onProgress ? ((data: string) => {
+        const d = data.match(/Progress: (\d+)\/(\d+)/);
+        if (d) {
+          const receivedBytes = +d[1];
+          const totalBytes = +d[2];
+          onProgress(null, receivedBytes, totalBytes);
+        }
+      }) : undefined;
+
+      _oP && strm.on("data", _oP);
       const onDoneEvent = () => {
         onDone && onDone();
         // Remove listeners
-        onProgress && dl.off("data", onProgress);
-
-        // Delete the old jar and rename the new one
-        fsp.rm(currentJar).then(() => {
-          fsp.rename(updatedJar, currentJar).then(async () => {
-            server.version = versionData.id;
-            await server.save();
-            resolve(server);
-          });
-        }).catch((error) => {
-          reject(error);
-        });
+        _oP && strm.off("data", _oP);
+        resolve(server);
       }
-      dl.once("finish", onDoneEvent);
+
+      await serverDl.installServer({
+        progressStream: strm
+      });
+
+      onDoneEvent();
 
       // Timeout in case of the download taking too long - Assuming it's stuck or something went wrong
       setTimeout(() => {
@@ -159,20 +175,17 @@ namespace ServerManager {
    */
   export async function start(mcserver: McServer) {
     const serverEntry = await getServerEntry(mcserver);
-    const eulaPath = Path.resolve(mcserver.directoryPath, "eula.txt");
-    if (await fsp.stat(eulaPath).then(() => false).catch(() => true)) { // Accept the EULA automatically
-      await fsp.writeFile(eulaPath, "eula=true");
-    }
+    await mcserver.acceptEula();
     try {
-      const serverPort = mcserver.getProperty("server-port");
+      const serverPort = +mcserver.getProperty("server-port")!;
 
       // Ensure the server port is correct and consistent with the database
       if (serverPort !== serverEntry.port) {
-        mcserver.setProperty("server-port", serverEntry.port);
+        mcserver.setProperty("server-port", serverEntry.port.toString());
       }
     } catch (error) {
       // This will happen if the server.properties file doesn't exist yet
-      const serverProperties = Path.resolve(mcserver.directoryPath, "server.properties");
+      const serverProperties = Path.resolve(mcserver.path, "server.properties");
       if (await fsp.stat(serverProperties).then(() => false).catch(() => true)) {
         await fsp.writeFile(serverProperties, "server-port=" + serverEntry.port);
       }
@@ -194,14 +207,19 @@ namespace ServerManager {
   export async function stop(mcserver: McServer, force: boolean = false) {
     return new Promise<void>((resolve, reject) => {
       try {
-        mcserver.stop(force);
+        if (force) {
+          mcserver.kill();
+        }
+        else {
+          mcserver.stop();
+        }
       } catch (error) {
         console.error(error);
         // IonMC has a bug where it throws an error because it tries to write to the server console after it's already stopped
         // This still stops the server, so we can just ignore the error
       }
       removeFromRunning(mcserver);
-      mcserver.once("stopped", () => {
+      mcserver.once("exit", () => {
         resolve();
       });
     });
@@ -231,11 +249,8 @@ namespace ServerManager {
    * Get the Minecraft server object from the database entry.
    */
   export async function getMCServer(server: Server) {
-    const serverPath = Path.resolve(serverFolder, server.id, "server.jar");
-    const mcserver = new McServer(serverPath, {
-      preventStart: true,
-      noReadline: true,
-    });
+    const serverPath = Path.resolve(serverFolder, server.id);
+    const mcserver = new McServer(serverPath);
 
     return mcserver;
   }
@@ -282,7 +297,7 @@ namespace ServerManager {
 
     const status = mcServer.getStatus();
     const admins = ((await mcServer.getOperators().catch(() => [])).map(o => o.name)).filter(n => n);
-    const players = mcServer.userList?.map(u => u.username);
+    const players = Array.from(mcServer.players);
 
     const result = {
       status,
@@ -302,8 +317,8 @@ namespace ServerManager {
     }
 
     try {
-      const worldName = mcServer.getProperty("level-name");
-      return Path.resolve(mcServer.directoryPath, worldName);
+      const worldName = mcServer.getProperty("level-name") ?? "world";
+      return Path.resolve(mcServer.path, worldName);
     } catch (error) {
       return null;
     }
