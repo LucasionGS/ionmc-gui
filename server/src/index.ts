@@ -23,9 +23,9 @@ io.on("connection", (socket) => {
         return;
       }
       const mcserver = ServerManager.getRunningServerById(server.id);
-      if (!mcserver) return;
+      if (!mcserver || !mcserver.ptyProcess) return;
       try {
-        mcserver.process.write(command + "\n");
+        mcserver.ptyProcess.write(command + "\n");
       } catch (error) {
         console.error(error);
       }

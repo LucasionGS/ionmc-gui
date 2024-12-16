@@ -12,10 +12,15 @@ export default function ServerCreatePage() {
   const user = BaseApi.getUser();
   const [versions] = ServerApi.useVersions();
   const [name, setName] = React.useState("");
+  const clients = ["vanilla", "forge"] as const;
+  const [client, setClient] = React.useState<typeof clients[number]>(clients[0]);
   const [version, setVersion] = React.useState("latest");
   const [ram, setRam] = React.useState(1024);
   const [freeRam] = UserApi.useHasPermission("SERVER.RAM");
   const router = useRouter();
+
+  const [forgeVersions, setForgeVersions] = ServerApi.useForgeVersions(version);
+  const [forgeVersion, setForgeVersion] = React.useState("");
 
   const [createdServer, setCreatedServer] = React.useState<ServerAttributes | null>(null);
 
@@ -25,7 +30,10 @@ export default function ServerCreatePage() {
     if (!user) return;
     modal.open();
     setCreatedServer(null);
-    ServerApi.createServer(name, version, ram).then(server => {
+    ServerApi.createServer(name, version, ram, {
+      client,
+      forgeVersion,
+    }).then(server => {
       setCreatedServer(server);
     });
   }, [user, name, version, ram]);
@@ -48,6 +56,17 @@ export default function ServerCreatePage() {
             The amount of memory your server will have. The more memory, the better your server will perform.
           </sup>
           <br />
+          <label className="ic-Input-label">Client type</label>
+          <SelectInput value={client} onChange={v => {
+            setClient(v);
+            if (v === "vanilla") {
+              setForgeVersion("");
+            }
+          }} options={clients.map(c => ({
+            label: c.charAt(0).toUpperCase() + c.slice(1),
+            value: c,
+          }))} />
+          <br />
           <div style={{
             display: "inline-block",
             padding: 4,
@@ -55,7 +74,13 @@ export default function ServerCreatePage() {
           }}>
             <label className="ic-Input-label">Version</label>
             {/* TODO: SelectInput doesn't change the value, fix this in @ioncore/theme */}
-            <SelectInput value={version} onChange={v => setVersion(v)} options={["latest", ...(versions ?? [])]} />
+            <SelectInput value={version} onChange={v => {
+              setVersion(v);
+              setForgeVersions(v);
+            }} options={["latest", ...(versions ?? [])]} />
+            {client === "forge" && (
+              <SelectInput value={forgeVersion || forgeVersions?.[0] || "latest"} onChange={v => setForgeVersion(v)} options={forgeVersions ?? []} />
+            )}
           </div>
           <br />
           <Button variant="success" type="submit">Create</Button>

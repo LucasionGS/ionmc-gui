@@ -82,3 +82,33 @@ table.datapack-list {
     border-bottom: 1px solid #e8e8e830;
   }
 }
+
+table.mod-list {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  table-layout: fixed;
+
+  tr {
+    text-align: left;
+    th {
+      padding: 12px 8px;
+    }
+    td {
+      padding: 12px 8px;
+      line-height: 1.4;
+      vertical-align: top;
+      border-top: 1px solid #e8e8e830;
+    }
+
+    &:nth-child(even) {
+      background-color: #00000050;
+    }
+  }
+  td {
+    border-bottom: 1px solid #e8e8e830;
+  }
+}

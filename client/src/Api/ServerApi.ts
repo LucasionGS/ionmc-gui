@@ -26,8 +26,17 @@ namespace ServerApi {
    * @param version Version the server should run.
    * @param ram Amount of RAM to allocate to the server. (in MB. 1024 = 1GB)
    */
-  export async function createServer(name: string, version: string, ram: number) {
-    return BaseApi.POST("/server", {}, { name, version, ram }).then((res) => res.json()) as Promise<ServerAttributes>;
+  export async function createServer(name: string, version: string, ram: number, opts: {
+    client?: "vanilla" | "forge",
+    forgeVersion?: string,
+  }) {
+    return BaseApi.POST("/server", {}, {
+      name,
+      version,
+      ram,
+      client: opts.client ?? "vanilla",
+      forgeVersion: opts.forgeVersion ?? null,
+    }).then((res) => res.json()) as Promise<ServerAttributes>;
   }
 
   /**
@@ -75,12 +84,25 @@ namespace ServerApi {
   export async function getVersions() {
     return BaseApi.GET("/version").then((res) => res.json()) as Promise<string[]>;
   }
-
+  
   /**
    * React hook for getting a list of all versions that the user has access to.
    * @returns A tuple containing the versions and a function to refresh the list.
+  */
+ export const useVersions = promiseUseHook(getVersions);
+  
+  /**
+   * Get a list of all versions that the user has access to.
    */
-  export const useVersions = promiseUseHook(getVersions);
+  export async function getForgeVersions(version: string) {
+    return BaseApi.GET(`/version?client=forge&version=${version}`).then((res) => res.json()) as Promise<string[]>;
+  }
+ 
+  /**
+   * React hook for getting a list of all forge versions that the user has access to.
+   * @returns A tuple containing the versions and a function to refresh the list.
+   */
+  export const useForgeVersions = promiseUseHook(getForgeVersions);
 
   /**
    * Get a server's properties.
@@ -207,6 +229,35 @@ namespace ServerApi {
 
   export async function updateServerVersion(id: string, version: string) {
     return BaseApi.POST(`/server/${id}/version`, {}, { version }).then((res) => res.json()) as Promise<{ message: string }>;
+  }
+
+  export async function uploadMod(id: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return BaseApi.POSTFormData(`/server/${id}/mods`, {}, formData).then((res) => res.json()) as Promise<{ message: string }>;
+  }
+
+  export async function uploadModManifest(id: string, file: File) {
+    const formData = new FormData();
+    formData.append("manifest", file);
+    return BaseApi.POSTFormData(`/server/${id}/mods`, {}, formData).then((res) => res.json()) as Promise<{ message: string }>;
+  }
+
+  export async function installMod(id: string, ...modId: number[]) {
+    return BaseApi.POST(`/server/${id}/mods`, {}, { modId }).then((res) => res.json()) as Promise<{ message: string }>;
+  }
+
+  export async function getMods(id: string) {
+    return BaseApi.GET(`/server/${id}/mods`).then((res) => res.json()) as Promise<{
+      available: [],
+      enabled: []
+    }>;
+  }
+
+  export const useMods = promiseUseHook(getMods);
+
+  export async function deleteMod(id: string, name: string) {
+    return BaseApi.DELETE(`/server/${id}/mods/${name}`).then((res) => res.json()) as Promise<{ message: string }>;
   }
 }
 

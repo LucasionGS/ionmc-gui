@@ -1,12 +1,13 @@
 import { Router } from "express";
 import { Server, User } from "../sequelize";
 import ServerManager from "../ServerManager";
-import { ConsoleInfo } from "ionmc/dist/lib/Server";
+// import { ConsoleInfo } from "ionmc/dist/lib/Server";
 import AppSystem from "../AppSystem";
-import ServerProperties from "ionmc/shared/ServerProperties";
+// import ServerProperties from "ionmc/shared/ServerProperties";
 import { io } from "../express";
 import fsp from "fs/promises";
 import { ServerAttributesExtra } from "@shared/models";
+import { Server as McServer } from "ionmc-core";
 
 namespace ServerController {
   export const router = Router();
@@ -23,7 +24,10 @@ namespace ServerController {
 
   router.post("/", User.$middleware(), async (req, res) => {
     const user = User.getAuthenticatedUser(req);
-    const { name, version, ram } = req.body as { name: string, version: string, ram: number };
+    const { name, version, ram,
+      client = "vanilla",
+      forgeVersion = undefined,
+     } = req.body as { name: string, version: string, ram: number, client?: "vanilla" | "forge", forgeVersion?: string };
     if (!name || !version || !ram) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -38,6 +42,9 @@ namespace ServerController {
       name,
       version,
       ram,
+      client,
+      forgeVersion,
+      
       userId: user.id
     }, {
       onProgress: (_, receivedBytes, totalBytes) => {
@@ -90,7 +97,7 @@ namespace ServerController {
       return res.status(403).json({ error: "You don't have permission to update this server" });
     }
 
-    await ServerManager.updateServerConfig(server, { version });
+    // await ServerManager.updateServerConfig(server, { version });
     ServerManager.updateServer(server, version, {
       onProgress: (_, receivedBytes, totalBytes) => {
         console.log("Progress:", receivedBytes, totalBytes);
@@ -111,13 +118,13 @@ namespace ServerController {
       return res.status(403).json({ error: "You don't have permission to start this server" });
     }
 
-    await ServerManager.updateServerConfig(server, {
-      java: process.env.JAVA_PATH || (AppSystem.isWindows ? "java.exe" : "java"),
-      useStderr: false,
-      version: server.version,
-      xms: `${server.ram}M`,
-      xmx: `${server.ram}M`,
-    });
+    // await ServerManager.updateServerConfig(server, {
+    //   java: process.env.JAVA_PATH || (AppSystem.isWindows ? "java.exe" : "java"),
+    //   useStderr: false,
+    //   version: server.version,
+    //   xms: `${server.ram}M`,
+    //   xmx: `${server.ram}M`,
+    // });
     const mcserver = await ServerManager.getMCServer(server);
 
     const isStarted = ServerManager.isRunning(mcserver);
@@ -126,8 +133,8 @@ namespace ServerController {
 
     const chn = `server/${server.id}`;
     const channel = io.to(chn);
-    const onData = (msg: ConsoleInfo) => {
-      const txt = msg.toString();
+    const onData = (msg: McServer.ParsedData) => {
+      const txt = mcserver._static.toFormattedString(msg, McServer.ColorMode.None);
       server.log(txt);
 
       channel.emit(chn, txt);
@@ -136,12 +143,12 @@ namespace ServerController {
     const sendStatus = async () => channel.emit(chn, null, await ServerManager.getStatus(server));
     sendStatus();
     mcserver.on("data", onData);
-    mcserver.on("connect", async (user) => {
+    mcserver.on("join", async (user) => {
       console.log("Server connected:", user);
       sendStatus();
     });
 
-    mcserver.on("disconnect", async (user) => {
+    mcserver.on("leave", async (user) => {
       console.log("Server disconnected:", user);
       sendStatus();
     });
@@ -151,7 +158,7 @@ namespace ServerController {
       sendStatus();
     });
 
-    mcserver.on("stopped", async () => {
+    mcserver.on("exit", async () => {
       console.log("Stopped listening to data on server", server.id);
       setTimeout(() => {
         mcserver.removeAllListeners();
@@ -199,15 +206,15 @@ namespace ServerController {
 
     const mcServer = await ServerManager.getMCServer(server);
     try {
-      const settings = mcServer.parseProperties();
-      return res.json(settings);
+      await mcServer.loadProperties();
+      return res.json(mcServer.properties);
     } catch (error: any) {
       return res.status(500).json({ error: error.message });
     }
   });
 
   router.put("/:id/properties", User.$middleware(), async (req, res) => {
-    const newSettings = req.body as Partial<ServerProperties>;
+    const newSettings = req.body as Record<string, string>;
     if (typeof newSettings !== "object") return res.status(400).json({ error: "Invalid settings" });
     const user = User.getAuthenticatedUser(req);
     const server = await Server.findByPk(req.params.id);
@@ -235,7 +242,9 @@ namespace ServerController {
 
     const mcServer = await ServerManager.getMCServer(server);
     try {
-      mcServer.setProperties(newSettings);
+      await mcServer.loadProperties();
+      Object.assign(mcServer.properties, newSettings);
+      await mcServer.saveProperties();
 
       if (error) {
         return res.json({ message: error + "\nOther settings are saved." });
@@ -398,6 +407,96 @@ namespace ServerController {
     const worldPath = await ServerManager.getWorldPath(server);
     const datapackPath = `${worldPath}/datapacks/${req.params.datapack}`;
     return res.sendFile(datapackPath + "/pack.png");
+  });
+
+  /**
+   * Get a list of all mods that the current server has.
+   */
+  router.get("/:id/mods", User.$middleware(), async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.VIEW")) {
+      return res.status(403).json({ error: "You don't have permission to view this server's mods" });
+    }
+
+    const mods = await ServerManager.getMods(server).catch(() => []);
+    return res.json(mods);
+  });
+
+  /**
+   * Upload a mod file.
+   */
+  router.post("/:id/mods", User.$middleware(), AppSystem.uploader.fields(
+    [{ name: "file", maxCount: 1 }, { name: "manifest", maxCount: 1 }]
+  ) as any, async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const files: { [fieldname: string]: Express.Multer.File[]; } = req.files as any;
+    const file = files?.file?.[0];
+    const manifest = files?.manifest?.[0];
+
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.EDIT")) {
+      return res.status(403).json({ error: "You don't have permission to upload to this server's mods" });
+    }
+    if (!file && !manifest && req.body.modId) {
+      let modId = req.body.modId as number | number[];
+      if (!modId) return res.status(400).json({ error: "Missing mod ID" });
+      if (server.userId !== user.id && !await user.hasPermission("SERVER.EDIT")) {
+        return res.status(403).json({ error: "You don't have permission to install mods on this server" });
+      }
+
+      if (!Array.isArray(modId)) {
+        modId = [modId];
+      }
+      
+      return await ServerManager.installMod(server.id, ...modId).then(() => {
+        res.json({ message: "Mod installed" });
+      }).catch((error: any) => {
+        res.status(500).json({ error: error.message });
+      });
+    }
+
+    if (file) {
+      return await ServerManager.uploadMod(server.id, file).then(() => {
+        res.json({ message: "Mod uploaded" });
+      }).catch((error: any) => {
+        fsp.rm(file.path);
+        res.status(500).json({ error: error.message });
+      });
+    }
+
+    if (manifest) {
+      return await ServerManager.installModManifest(server.id, manifest).then(() => {
+        res.json({ message: "Mod manifest uploaded" });
+      }).catch((error: any) => {
+        fsp.rm(manifest.path);
+        res.status(500).json({ error: error.message });
+      });
+    }
+    
+    return res.status(400).json({ error: "Missing file, manifest.json, or CurseForge ModID(s)" });
+  });
+
+  /**
+   * Delete a mod.
+   */
+  router.delete("/:id/mods/:mod", User.$middleware(), async (req, res) => {
+    const user = User.getAuthenticatedUser(req);
+    const mod = req.params.mod;
+    const server = await Server.findByPk(req.params.id);
+    if (!server) return res.status(404).json({ error: "Server not found" });
+    if (!mod) return res.status(400).json({ error: "Missing mod name" });
+    if (server.userId !== user.id && !await user.hasPermission("SERVER.EDIT")) {
+      return res.status(403).json({ error: "You don't have permission to delete this server's mods" });
+    }
+
+    ServerManager.deleteMod(server.id, mod).then(() => {
+      res.json({ message: "Mod deleted" });
+    }).catch((error: any) => {
+      res.status(500).json({ error: error.message });
+    });
   });
 }
 

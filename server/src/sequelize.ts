@@ -603,6 +603,7 @@ export interface ServerAttributesCreation {
   version: string;
   ram: number;
   port: number;
+  client?: string;
   userId: string;
 }
 
@@ -612,6 +613,7 @@ export interface ServerAttributes {
   version: string;
   ram: number;
   port: number;
+  client?: string;
   userId: string;
 }
 
@@ -624,6 +626,8 @@ export class Server extends Model<ServerAttributes, ServerAttributesCreation> im
   public version!: string;
   public ram!: number;
   public port!: number; // Unique, should update every time the server is started
+
+  public client?: string;
   public userId!: string;
 
   /**
@@ -717,6 +721,10 @@ Server.init({
     type: DataTypes.INTEGER,
     allowNull: false,
     unique: true,
+  },
+  client: {
+    type: DataTypes.STRING,
+    allowNull: true
   },
   userId: {
     type: DataTypes.UUID,

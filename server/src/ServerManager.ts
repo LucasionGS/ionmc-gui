@@ -1,8 +1,8 @@
-import { IonMC, Config } from "ionmc";
-import { MinecraftApi as Api, Server as McServer } from "ionmc-core";
+// import { Config } from "ionmc";
 import AppSystem from "./AppSystem";
 import Path from "path";
 import { Server, User } from "./sequelize";
+import { MinecraftApi as Api, ForgeServer, Server as McServer } from "ionmc-core";
 import fsp from "fs/promises";
 import { createReadStream } from "fs";
 import { io } from "./express";
@@ -24,13 +24,16 @@ namespace ServerManager {
      * RAM in MB
      */
     ram: number,
+    client: "vanilla" | "forge",
+    forgeVersion?: string,
+    
     userId: string
   }, events?: {
     onProgress?: (buffer: any, receivedBytes: number, totalBytes: number) => void,
     onDone?: () => void
   }) {
     return new Promise<Server>(async (resolve, reject) => {
-      const { name, version, ram, userId } = data;
+      const { name, version, ram, client, forgeVersion, userId } = data;
       const { onProgress, onDone } = events || {};
       console.log("Getting version data...");
       const versionData = await Api.getServerVersions().then(({ versions, latest }) => {
@@ -48,13 +51,26 @@ namespace ServerManager {
         version: versionData.id,
         port: await findFirstAvailablePort(),
         ram,
+        client: client ?? undefined,
         userId
       });
       console.log("Downloading server...");
       console.log("Server folder:", serverFolder);
       const dist = Path.resolve(serverFolder, server.id);
+      if (!(await fsp.stat(dist).then(() => true).catch(() => false))) {
+        await fsp.mkdir(dist, { recursive: true });
+      }
       // const dl = await Api.downloadServer(release, dist);
-      const serverDl = new McServer(dist);
+      let serverDl: McServer;
+      if (client === "forge") {
+        serverDl = new ForgeServer(dist);
+        serverDl.setVersion(versionData.id);
+        if (forgeVersion) (<ForgeServer>serverDl).setForgeVersion(forgeVersion);
+      }
+      else {
+        serverDl = new McServer(dist);
+        serverDl.setVersion(versionData.id);
+      }
       const strm = new McServer.ProgressStream();
       const _oP = onProgress ? ((data: string) => {
         const d = data.match(/Progress: (\d+)\/(\d+)/);
@@ -106,6 +122,10 @@ namespace ServerManager {
 
       const dist = Path.resolve(serverFolder, server.id);
       const serverDl = new McServer(dist);
+      serverDl.setVersion(versionData.id);
+      server.update({
+        version: versionData.id
+      });
       const strm = new McServer.ProgressStream();
 
       const _oP = onProgress ? ((data: string) => {
@@ -175,6 +195,7 @@ namespace ServerManager {
    */
   export async function start(mcserver: McServer) {
     const serverEntry = await getServerEntry(mcserver);
+    await mcserver.loadProperties();
     await mcserver.acceptEula();
     try {
       const serverPort = +mcserver.getProperty("server-port")!;
@@ -182,6 +203,7 @@ namespace ServerManager {
       // Ensure the server port is correct and consistent with the database
       if (serverPort !== serverEntry.port) {
         mcserver.setProperty("server-port", serverEntry.port.toString());
+        await mcserver.saveProperties();
       }
     } catch (error) {
       // This will happen if the server.properties file doesn't exist yet
@@ -250,8 +272,17 @@ namespace ServerManager {
    */
   export async function getMCServer(server: Server) {
     const serverPath = Path.resolve(serverFolder, server.id);
-    const mcserver = new McServer(serverPath);
+    let mcserver: McServer;
+    if (server.client === "forge") {
+      mcserver = new ForgeServer(serverPath);
+    }
+    else {
+      mcserver = new McServer(serverPath);
+    }
 
+    mcserver.setMemory(server.ram);
+    mcserver.setVersion(server.version);
+    
     return mcserver;
   }
 
@@ -260,20 +291,20 @@ namespace ServerManager {
    * @param server Server entry
    * @param config New configuration
    */
-  export async function updateServerConfig(server: Server, config: Partial<Config.IonConfig["config"]>) {
-    const serverPath = Path.resolve(serverFolder, server.id);
-    const serverConfigPath = Path.resolve(serverPath, ".ion", "serverConfig.json");
-    await fsp.mkdir(Path.dirname(serverConfigPath), { recursive: true });
-    const serverConfig = Config.load(serverPath);
-    if (serverConfig.serverConfig) {
-      serverConfig.serverConfig = { ...serverConfig.serverConfig, ...config };
-    }
-    else {
-      // Opposite of Partial
-      serverConfig.serverConfig = config as Required<typeof config>;
-    }
-    await fsp.writeFile(serverConfigPath, JSON.stringify(serverConfig.serverConfig, null, 2));
-  }
+  // export async function updateServerConfig(server: Server, config: Partial<Config.IonConfig["config"]>) {
+  //   const serverPath = Path.resolve(serverFolder, server.id);
+  //   const serverConfigPath = Path.resolve(serverPath, ".ion", "serverConfig.json");
+  //   await fsp.mkdir(Path.dirname(serverConfigPath), { recursive: true });
+  //   const serverConfig = Config.load(serverPath);
+  //   if (serverConfig.serverConfig) {
+  //     serverConfig.serverConfig = { ...serverConfig.serverConfig, ...config };
+  //   }
+  //   else {
+  //     // Opposite of Partial
+  //     serverConfig.serverConfig = config as Required<typeof config>;
+  //   }
+  //   await fsp.writeFile(serverConfigPath, JSON.stringify(serverConfig.serverConfig, null, 2));
+  // }
 
   const runningServers: McServer[] = [];
 
@@ -484,6 +515,97 @@ namespace ServerManager {
     if (!worldPath) throw new Error("World not found");
     const datapacksPath = Path.resolve(worldPath, "datapacks", name);
     await fsp.rm(datapacksPath, { recursive: true });
+  }
+
+  export async function getModsPath(_server: string | Server) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    return Path.join(serverFolder, server.id, "mods");
+  }
+
+  // Mod-compatible methods
+  export async function getMods(_server: string | Server) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    const mcserver = await getMCServer(server);
+    if (mcserver instanceof ForgeServer) {
+      return mcserver.listMods();
+    }
+    return {
+      available: [],
+      enabled: []
+    }
+  }
+
+  export async function uploadMod(_server: string | Server, file: Express.Multer.File) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    const modsPath = await getModsPath(server);
+    await fsp.mkdir(modsPath, { recursive: true });
+
+    if (file.mimetype === "application/zip") {
+      await extractZip(file.path, { dir: modsPath });
+      fsp.rm(file.path);
+    }
+    else {
+      await fsp.rename(file.path, Path.join(modsPath, file.originalname));
+    }
+  }
+
+  export async function deleteMod(_server: string | Server, name: string) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    const modsPath = await getModsPath(server);
+    await fsp.rm(Path.join(modsPath, name));
+  }
+
+  export async function enableMod(_server: string | Server, ...name: string[]) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    const mcserver = await getMCServer(server);
+    if (mcserver instanceof ForgeServer) {
+      await mcserver.enableMods(...name);
+    }
+  }
+
+  export async function disableMod(_server: string | Server, ...name: string[]) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    const mcserver = await getMCServer(server);
+    if (mcserver instanceof ForgeServer) {
+      await mcserver.disableMods(...name);
+    }
+  }
+
+  export async function installMod(_server: string | Server, ...ids: number[]) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    const mcserver = await getMCServer(server);
+    if (mcserver instanceof ForgeServer) {
+      for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        await mcserver.installMod(id, null, true);
+      }
+    }
+  }
+
+  export async function installModManifest(_server: string | Server, manifestFile: Express.Multer.File) {
+    const server = _server instanceof Server ? _server : await Server.findByPk(_server);
+    if (!server) throw new Error("Server not found");
+    const mcserver = await getMCServer(server);
+    if (mcserver instanceof ForgeServer) {
+      const manifest = JSON.parse((await fsp.readFile(manifestFile.path, "utf-8")).toString());
+
+      for (let i = 0; i < manifest.files.length; i++) {
+        const file = manifest.files[i];
+        console.log("Installing mod", file.projectID, file.fileID, "...");
+        try {
+          await mcserver.installMod(file.projectID, file.fileID, true);
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
   }
 }
 

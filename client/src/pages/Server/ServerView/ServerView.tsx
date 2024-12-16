@@ -58,9 +58,10 @@ export default function ServerViewPage(props: ServerViewProps) {
       case "settings": return ServerViewPanel_Settings;
       case "world": return ServerViewPanel_World;
       case "datapacks": return ServerViewPanel_Datapacks;
+      case "mods": return server?.client === "forge" && ServerViewPanel_Mods;
       default: return ServerViewPanel_Terminal;
     }
-  }, [route]);
+  }, [route, server?.client]);
 
   return (
     <MainLayout>
@@ -71,6 +72,9 @@ export default function ServerViewPage(props: ServerViewProps) {
             <SidepanelButton currentHash={route} href={`/server/${server.id}#settings`} >Server Settings</SidepanelButton>
             <SidepanelButton currentHash={route} href={`/server/${server.id}#world`}   >World Manager</SidepanelButton>
             <SidepanelButton currentHash={route} href={`/server/${server.id}#datapacks`}>Datapack Manager</SidepanelButton>
+            {server.client === "forge" &&
+              <SidepanelButton currentHash={route} href={`/server/${server.id}#mods`}     >Mod Manager</SidepanelButton>
+            }
             <hr />
             <h3 style={{ textAlign: "center" }}>Server update</h3>
             <Button {...buttonStyle} onClick={() => {
@@ -111,7 +115,7 @@ export default function ServerViewPage(props: ServerViewProps) {
               flex: 1,
             }}
           >
-            <Panel server={server} />
+            {Panel && <Panel server={server} />}
           </Paper>
         </div>
       ) : (
@@ -229,7 +233,7 @@ function ServerViewPanel_Terminal(props: ServerViewPanelProps) {
               <Button fullWidth variant="danger" onClick={() => {
                 (currentStatus as any).status = "stopping...";
                 setCurrentStatus(currentStatus);
-                ServerApi.stopServer(server.id).then((res) => {
+                ServerApi.stopServer(server.id).then((res: { message: string; }) => {
                   addLog(res.message);
                 });
               }}>
@@ -435,7 +439,7 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
     const keys = Object.keys(serverSettingsDetails) as (keyof ServerProperties)[];
     if (settings) keys.push(...Object.keys(settings) as (keyof ServerProperties)[]);
     return [...new Set(keys)];
-  }, [settings]).sort().sort((a, b) => {
+  }, [settings]).sort().sort((a: any, b: any) => {
     const aDetails = serverSettingsDetails[a];
     const bDetails = serverSettingsDetails[b];
     const aCategory = aDetails ? (aDetails[3] ?? "Uncategorized") : "Uncategorized";
@@ -511,7 +515,7 @@ function ServerViewPanel_Settings(props: ServerViewPanelProps) {
             flexWrap: "wrap",
             gap: 8
           }}>
-            {allSettingsKeys.map((key) => {
+            {allSettingsKeys.map((key: any) => {
               // console.log(key);
               // console.log(details);
               const details = serverSettingsDetails[key as keyof ServerProperties];
@@ -798,6 +802,131 @@ function ServerViewPanel_Datapacks(props: ServerViewPanelProps) {
               </tr>
             );
           })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ServerViewPanel_Mods(props: ServerViewPanelProps) {
+  const { server } = props;
+  const [mods, setMods] = ServerApi.useMods(server.id);
+  const [uploadFinished, setUploadFinished] = React.useState<boolean | string | null>(null);
+  const uploadModModal = useManagedModal();
+  const [installFinished, setInstallFinished] = React.useState<boolean | string | null>(null);
+  const [modId, setModId] = React.useState<string | null>(null);
+
+  return (
+    <div>
+      <h2>{server.name}</h2>
+      <h3>Mod manager</h3>
+      <p>Upload a mod to use on the server.</p>
+      <Button onClick={() => { setUploadFinished(null); uploadModModal.open() }}>Upload mod</Button>
+      <uploadModModal.Modal>
+        <h2>Upload mod</h2>
+        <p>
+          Upload a mod to the server.
+        </p>
+        {
+          uploadFinished === null ? (
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div>
+                <Button onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = ".jar";
+                  input.onchange = (e) => {
+                    setUploadFinished(false);
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (!file) return;
+                    ServerApi.uploadMod(server.id, file).then(({ message }) => {
+                      setUploadFinished(message || true);
+                      setMods(server.id);
+                    });
+                  };
+                  input.click();
+                }}>
+                  Select mod (jar)
+                </Button>
+                <Button onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = ".json";
+                  input.onchange = (e) => {
+                    setUploadFinished(false);
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (!file) return;
+                    ServerApi.uploadModManifest(server.id, file).then(({ message }) => {
+                      setUploadFinished(message || true);
+                      setMods(server.id);
+                    });
+                  };
+                  input.click();
+                }}>
+                  Select CurseForge Manifest (json)
+                </Button>
+              </div>
+              <Button onClick={uploadModModal.close}>Close</Button>
+            </div>
+          ) : uploadFinished === true ? (
+            <>
+              <p>Upload finished.</p>
+              <Button onClick={uploadModModal.close}>Close</Button>
+            </>
+          ) : typeof uploadFinished === "string" ? (
+            <>
+              <p>{uploadFinished}</p>
+              <Button onClick={uploadModModal.close}>Close</Button>
+            </>
+          ) : (
+            <IoncoreLoader />
+          )
+        }
+      </uploadModModal.Modal>
+      
+      <div>
+        <Input placeholder="Mod ID" onChange={(e) => {
+          setModId(e.target.value);
+        }} value={modId ?? ""} type="text" />
+        <Button variant="success"
+          onClick={() => {
+            setInstallFinished(false);
+            if (modId) {
+              ServerApi.installMod(server.id, ...modId.split(" ").map(Number)).then(({ message }) => {
+                setInstallFinished(message || true);
+                setMods(server.id);
+              });
+            }
+          }}
+        >Install</Button>
+      </div>
+      <hr />
+      <p>Installed mods</p>
+      <table className="mod-list">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {mods?.enabled?.map((mod, i) => {
+            return (
+              <tr key={mod}>
+                <td>{mod}</td>
+                <td>
+                  <Button size="small" variant="danger"
+                    onClick={() => {
+                      ServerApi.deleteMod(server.id, mod).then(() => {
+                        setMods(server.id);
+                      });
+                    }}
+                  >Remove</Button>
+                </td>
+              </tr>
+            );
+          }
+          )}
         </tbody>
       </table>
     </div>
